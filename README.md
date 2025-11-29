@@ -1,16 +1,107 @@
-# React + Vite
+🎓 UniHelp - Seu Assistente Acadêmico Inteligente
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Uma plataforma moderna e responsiva que conecta estudantes a informações sobre disciplinas, professores e avaliações acadêmicas através de Inteligência Artificial.
 
-Currently, two official plugins are available:
+📱 Sobre o Projeto
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+O UniHelp é uma aplicação web progressiva (PWA) desenvolvida para facilitar a vida universitária. Com uma interface Dark Mode elegante e foco na experiência do usuário (UX), o app permite que alunos tirem dúvidas instantâneas sobre matérias, grade curricular e avaliem suas experiências acadêmicas.
 
-## React Compiler
+✨ Principais Funcionalidades
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+🤖 Chatbot Inteligente: Integração com Google Gemini para responder dúvidas sobre cursos e disciplinas em linguagem natural.
 
-## Expanding the ESLint configuration
+🌗 Design Premium: Interface moderna em modo escuro com gradientes e blur, inspirada nas tendências atuais de UI.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+📱 Totalmente Responsivo: Funciona perfeitamente como app mobile (com menu inferior) e desktop (com sidebar lateral).
+
+📝 Sistema de Avaliação: Formulários interativos para feedback de disciplinas e professores.
+
+⚡ Performance Otimizada: Componentes leves e carregamento rápido com Vite.
+
+🎨 Layout e Telas
+
+O projeto conta com um fluxo completo de telas fiéis ao protótipo de alta fidelidade:
+
+Login & Cadastro
+
+Home & Dashboard
+
+Chat com IA
+
+Interface segura com validação visual
+
+Acesso rápido a resumos e agenda
+
+Respostas formatadas em Markdown
+
+(Adicione aqui os prints do seu projeto na pasta /assets)
+
+🛠️ Tecnologias Utilizadas
+
+Front-end: React.js + Vite
+
+Estilização: Tailwind CSS
+
+Ícones: Lucide React
+
+Inteligência Artificial: Google Gemini API
+
+Renderização de Texto: React Markdown
+
+🚀 Como Rodar o Projeto
+
+Siga os passos abaixo para ter o UniHelp rodando na sua máquina:
+
+Pré-requisitos
+
+Node.js instalado (v18 ou superior)
+
+Uma chave de API do Google Gemini (Gratuita no Google AI Studio)
+
+Instalação
+
+Clone o repositório:
+
+git clone [https://github.com/SEU-USUARIO/unihelp-chat.git](https://github.com/SEU-USUARIO/unihelp-chat.git)
+cd unihelp-chat
+
+
+Instale as dependências:
+
+npm install
+
+
+Configure a API Key:
+Crie um arquivo .env na raiz do projeto e adicione sua chave:
+
+VITE_GEMINI_API_KEY="SUA_CHAVE_AQUI"
+
+
+Inicie o servidor de desenvolvimento:
+
+npm run dev
+
+
+Acesse http://localhost:5173 no seu navegador.
+
+🤝 Contribuição
+
+Contribuições são sempre bem-vindas! Se você tem uma ideia para melhorar o app:
+
+Faça um Fork do projeto.
+
+Crie uma Branch para sua Feature (git checkout -b feature/IncrivelFeature).
+
+Faça o Commit (git commit -m 'Adiciona IncrivelFeature').
+
+Faça o Push (git push origin feature/IncrivelFeature).
+
+Abra um Pull Request.
+
+📄 Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo LICENSE para mais detalhes.
+
+<p align="center">
+Desenvolvido com 💙 por <strong>Seu Nome</strong>
+</p>
