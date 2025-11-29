@@ -1,107 +1,113 @@
-🎓 UniHelp - Seu Assistente Acadêmico Inteligente
+<div align="center">
+  <img src="https://via.placeholder.com/1200x400.png?text=UniHelp+Banner" alt="UniHelp Banner" width="100%">
 
-Uma plataforma moderna e responsiva que conecta estudantes a informações sobre disciplinas, professores e avaliações acadêmicas através de Inteligência Artificial.
+  <br />
+  <br />
 
-📱 Sobre o Projeto
+  <h1>🎓 UniHelp</h1>
+  <p><b>O Seu Assistente Acadêmico Inteligente com IA</b></p>
 
-O UniHelp é uma aplicação web progressiva (PWA) desenvolvida para facilitar a vida universitária. Com uma interface Dark Mode elegante e foco na experiência do usuário (UX), o app permite que alunos tirem dúvidas instantâneas sobre matérias, grade curricular e avaliem suas experiências acadêmicas.
+  <p>
+    <img src="https://img.shields.io/badge/REACT-19.0-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React" />
+    <img src="https://img.shields.io/badge/VITE-B73BFE?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
+    <img src="https://img.shields.io/badge/TAILWIND_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind" />
+    <img src="https://img.shields.io/badge/GEMINI_AI-8E75B2?style=for-the-badge&logo=google-gemini&logoColor=white" alt="Gemini" />
+  </p>
 
-✨ Principais Funcionalidades
+  <p>
+    <a href="#-sobre">Sobre</a> •
+    <a href="#-funcionalidades">Funcionalidades</a> •
+    <a href="#-layout">Layout</a> •
+    <a href="#-como-rodar">Como Rodar</a> •
+    <a href="#-tecnologias">Tecnologias</a> •
+    <a href="#-autor">Autor</a>
+  </p>
+</div>
 
-🤖 Chatbot Inteligente: Integração com Google Gemini para responder dúvidas sobre cursos e disciplinas em linguagem natural.
+<br />
 
-🌗 Design Premium: Interface moderna em modo escuro com gradientes e blur, inspirada nas tendências atuais de UI.
+## 📱 Sobre
 
-📱 Totalmente Responsivo: Funciona perfeitamente como app mobile (com menu inferior) e desktop (com sidebar lateral).
+O **UniHelp** é uma plataforma acadêmica desenvolvida para modernizar a experiência universitária. Com uma interface *Dark Mode* sofisticada e focada em UX, o app utiliza a inteligência artificial do **Google Gemini** para oferecer suporte instantâneo aos alunos.
 
-📝 Sistema de Avaliação: Formulários interativos para feedback de disciplinas e professores.
+Diferente de sistemas acadêmicos tradicionais e complexos, o UniHelp foca na rapidez e simplicidade: tirar dúvidas sobre matérias, avaliar professores e organizar a vida acadêmica em uma interface que se comporta como um app nativo.
 
-⚡ Performance Otimizada: Componentes leves e carregamento rápido com Vite.
+---
 
-🎨 Layout e Telas
+## ✨ Funcionalidades
 
-O projeto conta com um fluxo completo de telas fiéis ao protótipo de alta fidelidade:
+- **🤖 Chatbot Inteligente:** Converse naturalmente com a IA para tirar dúvidas sobre ementas e cursos.
+  - Respostas formatadas em Markdown (Negrito, Listas, Tópicos).
+  - Feedback interativo (Botões de Like/Dislike).
 
-Login & Cadastro
+- **🌗 Design Premium:** Interface imersiva em modo escuro com efeitos de *glassmorphism* (vidro) e gradientes.
 
-Home & Dashboard
+- **📱 Responsividade Total:**
+  - **Desktop:** Menu lateral (Sidebar) e layout expandido.
+  - **Mobile:** Menu inferior (Bottom Nav) e toques otimizados.
 
-Chat com IA
+- **📝 Sistema de Avaliação:** Formulários dinâmicos para feedback de disciplinas.
 
-Interface segura com validação visual
+- **⚡ Performance:** Carregamento instantâneo com Vite e otimização de re-renderização no React 19.
 
-Acesso rápido a resumos e agenda
+---
 
-Respostas formatadas em Markdown
+## 🎨 Layout
 
-(Adicione aqui os prints do seu projeto na pasta /assets)
+O projeto foi desenvolvido seguindo fielmente um protótipo de alta fidelidade no Figma. O design utiliza uma paleta de cores escura (`#09090b`) com acentos em Azul Royal e Ciano.
 
-🛠️ Tecnologias Utilizadas
+### 📸 Galeria de Telas
 
-Front-end: React.js + Vite
+<div align="center">
+  <img src="https://placehold.co/300x600/1e293b/white?text=Tela+Login" width="250" alt="Tela de Login" />
+  <img src="https://placehold.co/300x600/1e293b/white?text=Tela+Chat" width="250" alt="Tela de Chat" />
+  <img src="https://placehold.co/300x600/1e293b/white?text=Tela+Avaliar" width="250" alt="Tela de Avaliação" />
+</div>
 
-Estilização: Tailwind CSS
+---
 
-Ícones: Lucide React
+## 🛠 Tecnologias
 
-Inteligência Artificial: Google Gemini API
+As seguintes ferramentas foram usadas na construção do projeto:
 
-Renderização de Texto: React Markdown
+- **[React](https://react.dev/)** (v19) - Biblioteca para construção de interfaces.
+- **[Vite](https://vitejs.dev/)** - Build tool ultrarrápida.
+- **[Tailwind CSS](https://tailwindcss.com/)** - Framework de estilização utility-first.
+- **[Lucide React](https://lucide.dev/)** - Biblioteca de ícones moderna e leve.
+- **[Google Generative AI](https://ai.google.dev/)** - API do modelo Gemini Flash.
+- **React Markdown** - Para renderizar as respostas da IA com formatação rica.
 
-🚀 Como Rodar o Projeto
+---
 
-Siga os passos abaixo para ter o UniHelp rodando na sua máquina:
+## 🚀 Como Rodar o Projeto
 
-Pré-requisitos
+```bash
+# Clone este repositório
+$ git clone [https://github.com/SEU-USUARIO/unihelp-chat.git](https://github.com/SEU-USUARIO/unihelp-chat.git)
 
-Node.js instalado (v18 ou superior)
+# Acesse a pasta do projeto no terminal/cmd
+$ cd unihelp-chat
 
-Uma chave de API do Google Gemini (Gratuita no Google AI Studio)
+# Instale as dependências
+$ npm install
 
-Instalação
+# Crie um arquivo .env na raiz do projeto e adicione sua chave API
+# VITE_GEMINI_API_KEY="SUA_CHAVE_AQUI"
 
-Clone o repositório:
+# Execute a aplicação em modo de desenvolvimento
+$ npm run dev
 
-git clone [https://github.com/SEU-USUARIO/unihelp-chat.git](https://github.com/SEU-USUARIO/unihelp-chat.git)
-cd unihelp-chat
+# O servidor iniciará na porta: 5173 - acesse http://localhost:5173
 
+```
 
-Instale as dependências:
-
-npm install
-
-
-Configure a API Key:
-Crie um arquivo .env na raiz do projeto e adicione sua chave:
-
-VITE_GEMINI_API_KEY="SUA_CHAVE_AQUI"
-
-
-Inicie o servidor de desenvolvimento:
-
-npm run dev
-
-
-Acesse http://localhost:5173 no seu navegador.
-
-🤝 Contribuição
-
-Contribuições são sempre bem-vindas! Se você tem uma ideia para melhorar o app:
-
-Faça um Fork do projeto.
-
-Crie uma Branch para sua Feature (git checkout -b feature/IncrivelFeature).
-
-Faça o Commit (git commit -m 'Adiciona IncrivelFeature').
-
-Faça o Push (git push origin feature/IncrivelFeature).
-
-Abra um Pull Request.
-
-📄 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo LICENSE para mais detalhes.
-
-<p align="center">
-Desenvolvido com 💙 por <strong>Seu Nome</strong>
-</p>
+```text
+unihelp-chat/
+├── src/
+│   ├── components/      # Componentes reutilizáveis (ChatInput, Logo, etc)
+│   ├── assets/          # Imagens e ícones estáticos
+│   ├── App.jsx          # Lógica principal e Roteamento manual
+│   └── index.css        # Configurações globais do Tailwind
+├── public/              # Arquivos públicos
+├── .env                 # Variáveis de ambiente (Não comitado)
+└── README.md            # Documentação
