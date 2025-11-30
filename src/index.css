@@ -2,10 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Garante altura correta em celulares (dvh = dynamic viewport height) */
 html, body, #root {
-  height: 100%;
+  height: 100dvh; 
   margin: 0;
   padding: 0;
+  overflow: hidden; /* Impede a página inteira de rolar, só os componentes internos rolam */
+  background-color: #09090b; /* uni-bg */
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background-color: #f8fafc;
+}
+
+/* --- SCROLLBAR PERSONALIZADA (DARK) --- */
+/* Funciona no Chrome, Edge, Safari */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #27272a; /* uni-border */
+  border-radius: 20px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #3b82f6; /* uni-primary */
+}
+
+/* Firefox */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #27272a transparent;
+}
+
+/* Animações Suaves */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-bounce-slow {
+  animation: bounce 3s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(-5%); }
+  50% { transform: translateY(5%); }
 }

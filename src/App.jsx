@@ -167,7 +167,8 @@ export default function App() {
 
   // Layout Home/Chat
   return (
-    <div className="w-full h-screen bg-uni-bg flex flex-col font-sans text-uni-text overflow-hidden">
+    // FIX: height: 100dvh para mobile (evita que a barra de endereço corte o app)
+    <div className="w-full h-[100dvh] bg-uni-bg flex flex-col font-sans text-uni-text overflow-hidden relative">
       
       {/* Header */}
       {currentScreen !== 'evaluation' && (
