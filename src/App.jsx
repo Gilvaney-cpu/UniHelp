@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Bot, Menu, ArrowLeft, Loader2, Sparkles, ChevronDown, Check, X, Star, ShieldCheck, LogOut } from 'lucide-react';
+import { Send, User, Bot, Menu, ArrowLeft, Loader2, Sparkles, ChevronDown, Check, X, Star, ShieldCheck, LogOut, Circle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown'; 
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, collection, addDoc, getDocs, query, where } from "firebase/firestore";
 
-// --- CONFIGURAÇÃO DO FIREBASE ---
-// Substitua com suas chaves do Firebase Console depois
+// --- CONFIGURAÇÃO DO FIREBASE (PRODUÇÃO) ---
+// Este código busca as chaves automaticamente do seu arquivo .env
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -16,30 +16,35 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-// Inicializa Firebase apenas se houver configuração (evita erro em dev sem chaves)
+// Inicializa Firebase de forma segura
 let auth, db;
 try {
+  // Verifica se a chave existe antes de tentar inicializar
   if (firebaseConfig.apiKey) {
     const app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
+  } else {
+    console.warn("Chaves do Firebase não encontradas no .env");
   }
-} catch (e) {
-  console.log("Firebase não configurado ainda (Modo Demo)");
+} catch (e) { 
+  console.error("Erro ao inicializar Firebase:", e); 
 }
 
 // --- CONFIGURAÇÃO DA API GEMINI ---
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ""; 
 
-// --- DADOS MOCKADOS (Para testar sem Banco de Dados) ---
+// --- DADOS PARA OS MENUS ---
+const MOCK_SUBJECTS = ["Engenharia de Software", "Cálculo 1", "Física 3", "Algoritmos", "Ética", "Banco de Dados"];
+const MOCK_PROFESSORS = ["Robson Correia", "Ana Paula", "Carlos Silva", "Fernanda Lima", "Roberto Santos"];
+const MOCK_PERIODS = ["2024.1", "2023.2", "2023.1", "2022.2"];
+
+// --- DADOS MOCKADOS (Validação) ---
 const MOCK_VALIDATIONS = [
   { id: 1, text: "O professor Robson cobra presença em todas as aulas de Engenharia de Software?", subject: "Engenharia de Software" },
   { id: 2, text: "Dizem que a prova de Cálculo 1 permite consulta a uma folha A4. Confere?", subject: "Cálculo 1" },
   { id: 3, text: "É verdade que a disciplina de Ética não tem prova final, apenas trabalhos?", subject: "Ética" }
 ];
-
-const MOCK_PROFESSORS = ["Robson Correia", "Ana Paula", "Carlos Silva", "Fernanda Lima"];
-const MOCK_SUBJECTS = ["Engenharia de Software", "Cálculo 1", "Física 3", "Algoritmos", "Ética"];
 
 // --- COMPONENTES ---
 
@@ -84,46 +89,36 @@ const ChatInput = ({ onSend, isLoading }) => {
 const LoginScreen = ({ onNavigate, onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     setLoading(true);
-    setError('');
     try {
       if (auth) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        // Simulação para testar sem Firebase
-        if(email && password) {
-           setTimeout(() => onLoginSuccess({ email }), 1000);
-           return;
-        }
+        // Fallback apenas se o Firebase falhar
+        alert("Firebase não conectado. Verifique o console.");
+        setLoading(false);
       }
-      onLoginSuccess(auth?.currentUser || { email });
-    } catch (err) {
-      setError("Erro ao entrar. Verifique suas credenciais.");
-      setLoading(false);
+    } catch (err) { 
+      alert("Erro no login: " + err.message); 
+      setLoading(false); 
     }
   };
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center relative overflow-hidden bg-uni-bg">
-      <div className="absolute inset-0 w-full h-full overflow-y-auto custom-scrollbar flex flex-col p-8">
-        <div className="relative z-10 flex-1 flex flex-col justify-center mt-10 max-w-md mx-auto w-full">
-          <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">Login</h1>
-          <p className="text-uni-muted mb-10 text-sm">Ainda não tem uma conta? <button onClick={() => onNavigate('register')} className="text-uni-primary font-semibold hover:underline">Cadastre-se</button></p>
-          
-          <div className="space-y-5">
-            <div className="space-y-1.5"><label className="text-xs font-medium text-uni-muted ml-1 uppercase">E-mail</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl px-4 py-4 text-white outline-none focus:border-uni-primary transition" /></div>
-            <div className="space-y-1.5"><label className="text-xs font-medium text-uni-muted ml-1 uppercase">Senha</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl px-4 py-4 text-white outline-none focus:border-uni-primary transition" /></div>
-            {error && <p className="text-red-400 text-sm">{error}</p>}
-            <button onClick={handleLogin} disabled={loading} className="w-full py-4 bg-uni-primary rounded-xl text-white font-bold shadow-lg hover:bg-uni-primary-dark transition-all mt-6 active:scale-[0.98] flex justify-center">
-              {loading ? <Loader2 className="animate-spin" /> : "Entrar"}
-            </button>
-          </div>
+    <div className="w-full h-full flex flex-col items-center justify-center bg-uni-bg overflow-y-auto custom-scrollbar p-8">
+      <div className="w-full max-w-md flex flex-col items-center">
+        <LogoUniHelp />
+        <div className="w-full space-y-4">
+          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary" />
+          <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary" />
+          <button onClick={handleLogin} disabled={loading} className="w-full py-4 bg-uni-primary rounded-xl text-white font-bold shadow-lg mt-4 flex justify-center">
+            {loading ? <Loader2 className="animate-spin" /> : "Entrar"}
+          </button>
+          <button onClick={() => onNavigate('register')} className="text-uni-muted text-sm hover:text-white transition">Criar conta</button>
         </div>
-        <div className="flex justify-center pb-6 mt-auto shrink-0"><LogoUniHelp /></div>
       </div>
     </div>
   );
@@ -132,28 +127,33 @@ const LoginScreen = ({ onNavigate, onLoginSuccess }) => {
 const RegisterScreen = ({ onNavigate, onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   
   const handleRegister = async () => {
+    setLoading(true);
     if (auth) {
-      try {
-        await createUserWithEmailAndPassword(auth, email, password);
-        onLoginSuccess(auth.currentUser);
-      } catch (e) { alert("Erro ao criar conta: " + e.message); }
-    } else {
-      onLoginSuccess({ email }); // Mock
+      try { 
+        await createUserWithEmailAndPassword(auth, email, password); 
+        // O onAuthStateChanged no App cuidará do redirecionamento
+      } catch(e) {
+        alert("Erro ao cadastrar: " + e.message);
+        setLoading(false);
+      }
     }
   };
 
   return (
-    <div className="w-full h-full flex flex-col p-8 bg-uni-bg relative overflow-y-auto custom-scrollbar">
-      <div className="relative z-10 flex-1 flex flex-col justify-center mt-4 max-w-md mx-auto w-full pb-10">
-        <h1 className="text-3xl font-bold text-white mb-1">Crie uma conta</h1>
-        <p className="text-uni-muted mb-8 text-sm">Já tem uma conta? <button onClick={() => onNavigate('login')} className="text-uni-primary font-semibold hover:underline">Login</button></p>
+    <div className="w-full h-full flex flex-col items-center justify-center bg-uni-bg overflow-y-auto custom-scrollbar p-8">
+      <div className="w-full max-w-md">
+        <h1 className="text-3xl font-bold text-white mb-6 text-center">Criar Conta</h1>
         <div className="space-y-4">
-          <input type="text" placeholder="Nome" className="w-full bg-uni-card border border-uni-border rounded-xl px-4 py-3.5 text-white outline-none focus:border-uni-primary" />
-          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl px-4 py-3.5 text-white outline-none focus:border-uni-primary" />
-          <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl px-4 py-3.5 text-white outline-none focus:border-uni-primary" />
-          <button onClick={handleRegister} className="w-full py-4 bg-uni-primary rounded-xl text-white font-bold shadow-lg mt-2 active:scale-[0.98]">Cadastrar</button>
+          <input type="text" placeholder="Nome" className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary" />
+          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary" />
+          <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary" />
+          <button onClick={handleRegister} disabled={loading} className="w-full py-4 bg-uni-primary rounded-xl text-white font-bold shadow-lg mt-4 flex justify-center">
+             {loading ? <Loader2 className="animate-spin" /> : "Cadastrar"}
+          </button>
+          <button onClick={() => onNavigate('login')} className="w-full text-uni-muted text-sm hover:text-white transition">Voltar para Login</button>
         </div>
       </div>
     </div>
@@ -161,23 +161,31 @@ const RegisterScreen = ({ onNavigate, onLoginSuccess }) => {
 };
 
 const EvaluationScreen = ({ onNavigate }) => {
-  const [disciplina, setDisciplina] = useState('');
-  const [professor, setProfessor] = useState('');
-  const [opiniao, setOpiniao] = useState('');
+  const [formData, setFormData] = useState({
+    disciplina: '',
+    professor: '',
+    periodo: '',
+    explicacaoClara: null, // null, 'sim', 'nao'
+    avaliacoesAlinhadas: null,
+    opiniaoGeral: ''
+  });
   const [enviado, setEnviado] = useState(false);
 
   const handleSubmit = async () => {
-    if (!disciplina || !professor || !opiniao) return alert("Preencha todos os campos!");
+    if (!formData.disciplina || !formData.professor || !formData.periodo) return alert("Preencha os campos obrigatórios!");
     
-    // Salvar no Firebase (se configurado)
     if (db) {
       try {
         await addDoc(collection(db, "avaliacoes"), {
-          disciplina, professor, opiniao,
+          ...formData,
           data: new Date(),
-          userId: auth?.currentUser?.uid
+          userId: auth?.currentUser?.uid || 'anon'
         });
-      } catch (e) { console.error(e); }
+      } catch (e) { 
+        console.error("Erro ao salvar:", e);
+        alert("Erro ao salvar a avaliação. Verifique sua conexão.");
+        return;
+      }
     }
     
     setEnviado(true);
@@ -189,8 +197,7 @@ const EvaluationScreen = ({ onNavigate }) => {
       <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
         <Check size={40} className="text-green-500" />
       </div>
-      <h2 className="text-2xl font-bold text-white">Avaliação Enviada!</h2>
-      <p className="text-uni-muted mt-2">Obrigado por contribuir com a comunidade.</p>
+      <h2 className="text-2xl font-bold text-white">Avaliação Recebida!</h2>
     </div>
   );
 
@@ -201,43 +208,75 @@ const EvaluationScreen = ({ onNavigate }) => {
         <h1 className="text-lg font-bold text-white absolute left-1/2 transform -translate-x-1/2">Avaliar</h1>
         <div className="w-8" />
       </div>
-      <div className="absolute inset-0 top-[80px] w-full overflow-y-auto custom-scrollbar">
-          <div className="p-6 space-y-6 pb-24 max-w-2xl mx-auto w-full">
+      
+      <div className="flex-1 w-full relative overflow-y-auto custom-scrollbar">
+          <div className="p-6 space-y-6 pb-32 max-w-2xl mx-auto w-full">
             
-            {/* Inputs Melhorados conforme imagem */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-uni-muted ml-1 uppercase">Disciplina</label>
-              <div className="relative">
-                <select value={disciplina} onChange={e => setDisciplina(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl px-4 py-4 text-uni-text outline-none appearance-none cursor-pointer focus:border-uni-primary transition">
-                  <option value="">Selecionar...</option>
-                  {MOCK_SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-uni-muted pointer-events-none" size={18} />
+            {/* Dropdowns */}
+            {[
+              { label: "Disciplina", key: "disciplina", options: MOCK_SUBJECTS },
+              { label: "Professor", key: "professor", options: MOCK_PROFESSORS },
+              { label: "Período em que cursou", key: "periodo", options: MOCK_PERIODS }
+            ].map((field) => (
+              <div key={field.key} className="space-y-2 bg-uni-card/50 p-4 rounded-xl border border-uni-border/50">
+                <label className="text-xs font-bold text-uni-muted ml-1 uppercase tracking-wide">{field.label}</label>
+                <div className="relative">
+                  <select 
+                    value={formData[field.key]} 
+                    onChange={e => setFormData({...formData, [field.key]: e.target.value})} 
+                    className="w-full bg-uni-card border border-uni-border rounded-lg px-4 py-3 text-uni-text outline-none appearance-none cursor-pointer focus:border-uni-primary transition"
+                  >
+                    <option value="">Selecionar</option>
+                    {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-uni-muted pointer-events-none" size={18} />
+                </div>
               </div>
-            </div>
+            ))}
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-uni-muted ml-1 uppercase">Professor</label>
-              <div className="relative">
-                <select value={professor} onChange={e => setProfessor(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl px-4 py-4 text-uni-text outline-none appearance-none cursor-pointer focus:border-uni-primary transition">
-                  <option value="">Selecionar...</option>
-                  {MOCK_PROFESSORS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-                <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-uni-muted pointer-events-none" size={18} />
+            {/* Perguntas Sim/Não */}
+            {[
+              { label: "O professor explica os conteúdos da aula de forma clara.", key: "explicacaoClara" },
+              { label: "As avaliações (provas, atividades) estão alinhados com o que foi ensinado.", key: "avaliacoesAlinhadas" }
+            ].map((q) => (
+              <div key={q.key} className="bg-uni-card/50 p-5 rounded-xl border border-uni-border/50 space-y-4">
+                <p className="text-sm font-medium text-white">{q.label}</p>
+                <div className="flex items-center gap-8 px-2">
+                   <div 
+                     className="flex items-center gap-3 cursor-pointer group"
+                     onClick={() => setFormData({...formData, [q.key]: 'sim'})}
+                   >
+                     <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${formData[q.key] === 'sim' ? 'border-uni-primary bg-uni-primary' : 'border-uni-muted group-hover:border-white'}`}>
+                        {formData[q.key] === 'sim' && <Check size={14} className="text-white" />}
+                     </div>
+                     <span className={`text-sm ${formData[q.key] === 'sim' ? 'text-white' : 'text-uni-muted group-hover:text-white'}`}>Sim</span>
+                   </div>
+
+                   <div 
+                     className="flex items-center gap-3 cursor-pointer group"
+                     onClick={() => setFormData({...formData, [q.key]: 'nao'})}
+                   >
+                     <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${formData[q.key] === 'nao' ? 'border-uni-primary bg-uni-primary' : 'border-uni-muted group-hover:border-white'}`}>
+                        {formData[q.key] === 'nao' && <Check size={14} className="text-white" />}
+                     </div>
+                     <span className={`text-sm ${formData[q.key] === 'nao' ? 'text-white' : 'text-uni-muted group-hover:text-white'}`}>Não</span>
+                   </div>
+                </div>
               </div>
-            </div>
+            ))}
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-uni-muted ml-1 uppercase">Sua Opinião</label>
+            {/* Text Area */}
+            <div className="space-y-2 bg-uni-card/50 p-4 rounded-xl border border-uni-border/50">
+              <label className="text-xs font-bold text-uni-muted ml-1 uppercase">No geral, como você avalia a disciplina?</label>
               <textarea 
-                value={opiniao} 
-                onChange={e => setOpiniao(e.target.value)} 
-                placeholder="Escreva aqui o que achou da metodologia, provas, etc..." 
-                className="w-full bg-uni-card border border-uni-border rounded-xl px-4 py-4 text-white h-40 resize-none outline-none focus:border-uni-primary transition placeholder:text-uni-muted/50"
+                value={formData.opiniaoGeral} 
+                onChange={e => setFormData({...formData, opiniaoGeral: e.target.value})} 
+                placeholder="Escreva aqui..." 
+                className="w-full bg-uni-card border border-uni-border rounded-lg px-4 py-3 text-white h-32 resize-none outline-none focus:border-uni-primary transition placeholder:text-uni-muted/50"
               ></textarea>
             </div>
 
-            <button onClick={handleSubmit} className="w-full py-4 bg-white text-uni-bg font-bold rounded-xl hover:bg-gray-200 transition shadow-lg mt-4 active:scale-[0.98]">
+            <button onClick={handleSubmit} className="w-full py-4 bg-white text-uni-bg font-bold rounded-xl hover:bg-gray-200 transition shadow-lg active:scale-[0.98]">
               Enviar Avaliação
             </button>
           </div>
@@ -251,7 +290,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [currentScreen, setCurrentScreen] = useState('login'); 
   const [chatHistory, setChatHistory] = useState([
-    { role: 'model', text: 'Olá, sou o UniHelp! Posso tirar suas dúvidas ou validar informações sobre disciplinas.', type: 'text' }
+    { role: 'model', text: 'Olá, sou o UniHelp! Como posso te ajudar hoje?', feedback: null }
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
@@ -263,6 +302,9 @@ export default function App() {
         else { setUser(null); setCurrentScreen('login'); }
       });
       return () => unsub();
+    } else {
+      // Se não tiver Firebase, fica no login
+      setCurrentScreen('login');
     }
   }, []);
 
@@ -270,7 +312,6 @@ export default function App() {
 
   // Função para Injetar uma Validação no Chat
   const triggerValidation = () => {
-    // Pega uma afirmação aleatória para o usuário validar
     const validation = MOCK_VALIDATIONS[Math.floor(Math.random() * MOCK_VALIDATIONS.length)];
     
     setChatHistory(prev => [
@@ -285,29 +326,31 @@ export default function App() {
   };
 
   const handleSendMessage = async (text) => {
-    setChatHistory(prev => [...prev, { role: 'user', text, type: 'text' }]);
+    setChatHistory(prev => [...prev, { role: 'user', text, feedback: null }]);
     setIsLoading(true);
-
-    // Lógica para acionar a validação aleatoriamente (ex: 30% de chance após uma resposta)
-    const shouldValidate = Math.random() > 0.7;
 
     try {
       if (!GEMINI_API_KEY) throw new Error("API Key ausente");
 
+      // INSTRUÇÃO DE SISTEMA OCULTA PARA RESPOSTAS CURTAS
+      const systemInstruction = "(Responda de forma direta, resumida e didática, com no máximo 3 parágrafos curtos. Use bullet points se precisar listar algo.)";
+      const finalPrompt = `${text} ${systemInstruction}`;
+
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text }] }] })
+        body: JSON.stringify({ contents: [{ parts: [{ text: finalPrompt }] }] })
       });
 
       const data = await response.json();
       if (data.error) throw new Error(data.error.message);
 
-      const botResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      setChatHistory(prev => [...prev, { role: 'model', text: botResponse, type: 'text' }]);
-
-      if (shouldValidate) {
-        setTimeout(triggerValidation, 1500); // Dispara a validação um pouco depois
+      const botResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "Erro ao gerar resposta.";
+      setChatHistory(prev => [...prev, { role: 'model', text: botResponse, feedback: null }]);
+      
+      // Chance de disparar validação após resposta
+      if (Math.random() > 0.7) {
+        setTimeout(triggerValidation, 1500);
       }
 
     } catch (error) {
@@ -317,19 +360,21 @@ export default function App() {
     }
   };
 
+  const handleFeedback = (index, type) => {
+    setChatHistory(prev => prev.map((msg, i) => i === index ? { ...msg, feedback: type } : msg));
+  };
+
   const handleValidationResponse = (id, response) => {
-    // Aqui salvaríamos a resposta no Banco de Dados para contabilizar a veracidade
     console.log(`Validação ${id}: ${response}`);
-    
-    // Atualiza a UI para agradecer
     setChatHistory(prev => [
       ...prev,
       { role: 'model', text: `✅ Obrigado! Sua resposta ajuda a manter o UniHelp atualizado.`, type: 'text' }
     ]);
   };
 
-  if (!user && currentScreen !== 'register') return <LoginScreen onNavigate={setCurrentScreen} onLoginSuccess={(u) => { setUser(u); setCurrentScreen('home'); }} />;
-  if (currentScreen === 'register') return <RegisterScreen onNavigate={setCurrentScreen} onLoginSuccess={(u) => { setUser(u); setCurrentScreen('home'); }} />;
+  // Renderização Condicional
+  if (!user && currentScreen === 'login') return <LoginScreen onNavigate={setCurrentScreen} onLoginSuccess={(u) => { setUser(u); setCurrentScreen('home'); }} />;
+  if (!user && currentScreen === 'register') return <RegisterScreen onNavigate={setCurrentScreen} onLoginSuccess={(u) => { setUser(u); setCurrentScreen('home'); }} />;
   if (currentScreen === 'evaluation') return <EvaluationScreen onNavigate={setCurrentScreen} />;
 
   return (
@@ -349,13 +394,13 @@ export default function App() {
             <span className="font-bold text-lg tracking-wide">UniHelp</span>
           </div>
           <div className="w-10 flex justify-end">
-            <div className="w-9 h-9 rounded-full bg-uni-card border border-uni-border flex items-center justify-center hover:border-uni-primary transition cursor-pointer" onClick={() => { setUser(null); setCurrentScreen('login'); }}>
+            <div className="w-9 h-9 rounded-full bg-uni-card border border-uni-border flex items-center justify-center hover:border-uni-primary transition cursor-pointer" onClick={() => { if(auth) signOut(auth); setUser(null); setCurrentScreen('login'); }}>
               <LogOut size={18} className="text-uni-muted hover:text-red-400"/>
             </div>
           </div>
       </div>
 
-      {/* Container Principal */}
+      {/* Main Container */}
       <div className="flex-1 w-full h-full relative overflow-y-auto custom-scrollbar scroll-smooth">
         
         {/* Home */}
@@ -401,7 +446,7 @@ export default function App() {
                     
                     <div className="flex flex-col gap-2 w-full min-w-0">
                       <div className={`p-4 text-sm md:text-base leading-relaxed shadow-sm ${
-                        msg.role === 'user' ? 'bg-uni-primary text-white rounded-2xl rounded-tr-sm' : 
+                        msg.role === 'user' ? 'bg-uni-primary text-white rounded-2xl rounded-tr-sm shadow-blue-900/20' : 
                         msg.type === 'validation' ? 'bg-uni-card border border-uni-primary/30 rounded-2xl' :
                         'bg-uni-card text-uni-text border border-uni-border rounded-2xl rounded-tl-sm'
                       }`}>
@@ -424,6 +469,22 @@ export default function App() {
                           </div>
                         )}
                       </div>
+                      
+                      {/* Botões de Feedback (Like/Dislike) */}
+                      {msg.role === 'model' && msg.type !== 'validation' && !msg.isError && idx > 0 && (
+                        <div className="flex gap-2">
+                          {msg.feedback === 'yes' ? (
+                             <div className="text-xs text-uni-primary flex items-center gap-1 font-bold animate-fade-in"><Check size={14} /> Obrigado!</div>
+                          ) : msg.feedback === 'no' ? (
+                             <div className="text-xs text-uni-muted flex items-center gap-1 animate-fade-in">Anotado.</div>
+                          ) : (
+                            <>
+                              <button onClick={() => handleFeedback(idx, 'yes')} className="flex items-center gap-1.5 bg-white text-black text-xs font-bold px-4 py-1.5 rounded-full hover:bg-gray-200 transition shadow-sm active:scale-95">Sim</button>
+                              <button onClick={() => handleFeedback(idx, 'no')} className="flex items-center gap-1.5 bg-black/40 border border-uni-border/50 text-white text-xs font-medium px-4 py-1.5 rounded-full hover:bg-black/60 transition active:scale-95">Não</button>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
