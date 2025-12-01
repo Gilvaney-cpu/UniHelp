@@ -3,28 +3,31 @@ import { Send, User, Bot, Menu, ArrowLeft, Loader2, Sparkles, ChevronDown, Check
 import ReactMarkdown from 'react-markdown'; 
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from "firebase/firestore";
 
-// --- CONFIGURAÇÃO DO FIREBASE ---
+// --- CONFIGURAÇÃO DO FIREBASE (HÍBRIDA) ---
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+appId: import.meta.env.VITE_FIREBASE_APP_ID
+  
 };
 
-// Inicializa Firebase
+// Inicializa Firebase apenas se houver configuração (evita erro em dev sem chaves)
 let auth, db;
 try {
   if (firebaseConfig.apiKey) {
     const app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
+  } else {
+    console.log("Modo Demo: Firebase não configurado.");
   }
 } catch (e) { 
-  console.error("Erro ao inicializar Firebase", e); 
+  console.error("Erro ao inicializar Firebase:", e); 
 }
 
 // --- CONFIGURAÇÃO DA API GEMINI ---
@@ -43,8 +46,6 @@ const MOCK_VALIDATIONS = [
 ];
 
 // --- COMPONENTES ---
-
-// Logo atualizada para usar a imagem (Salve como 'logo.png' na pasta public)
 const LogoUniHelp = ({ className = "h-8" }) => (
   <div className="flex items-center gap-2 animate-fade-in">
     {/* Tenta carregar a imagem, se falhar mostra o ícone antigo como fallback */}
@@ -103,8 +104,9 @@ const LoginScreen = ({ onNavigate, onLoginSuccess }) => {
       if (auth) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        alert("Erro: Firebase não inicializado corretamente.");
-        setLoading(false);
+        // Fallback apenas se o Firebase falhar (Modo Demo)
+        if(email && password) setTimeout(() => onLoginSuccess({ email }), 1000);
+        else { alert("Preencha os campos (Modo Demo)"); setLoading(false); }
       }
     } catch (err) { 
       alert("Erro no login: " + err.message); 
@@ -139,10 +141,13 @@ const RegisterScreen = ({ onNavigate, onLoginSuccess }) => {
     if (auth) {
       try { 
         await createUserWithEmailAndPassword(auth, email, password); 
+        // O onAuthStateChanged no App cuidará do redirecionamento
       } catch(e) {
         alert("Erro ao cadastrar: " + e.message);
         setLoading(false);
       }
+    } else {
+        setTimeout(() => onLoginSuccess({ email }), 1000);
     }
   };
 
@@ -246,25 +251,14 @@ const EvaluationScreen = ({ onNavigate }) => {
               <div key={q.key} className="bg-uni-card/50 p-5 rounded-xl border border-uni-border/50 space-y-4">
                 <p className="text-sm font-medium text-white">{q.label}</p>
                 <div className="flex items-center gap-8 px-2">
-                   <div 
-                     className="flex items-center gap-3 cursor-pointer group"
-                     onClick={() => setFormData({...formData, [q.key]: 'sim'})}
-                   >
-                     <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${formData[q.key] === 'sim' ? 'border-uni-primary bg-uni-primary' : 'border-uni-muted group-hover:border-white'}`}>
-                        {formData[q.key] === 'sim' && <Check size={14} className="text-white" />}
+                   {['sim', 'nao'].map(opt => (
+                     <div key={opt} className="flex items-center gap-3 cursor-pointer group" onClick={() => setFormData({...formData, [q.key]: opt})}>
+                       <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${formData[q.key] === opt ? 'border-uni-primary bg-uni-primary' : 'border-uni-muted group-hover:border-white'}`}>
+                          {formData[q.key] === opt && <Check size={14} className="text-white" />}
+                       </div>
+                       <span className={`text-sm capitalize ${formData[q.key] === opt ? 'text-white' : 'text-uni-muted group-hover:text-white'}`}>{opt === 'nao' ? 'Não' : 'Sim'}</span>
                      </div>
-                     <span className={`text-sm ${formData[q.key] === 'sim' ? 'text-white' : 'text-uni-muted group-hover:text-white'}`}>Sim</span>
-                   </div>
-
-                   <div 
-                     className="flex items-center gap-3 cursor-pointer group"
-                     onClick={() => setFormData({...formData, [q.key]: 'nao'})}
-                   >
-                     <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${formData[q.key] === 'nao' ? 'border-uni-primary bg-uni-primary' : 'border-uni-muted group-hover:border-white'}`}>
-                        {formData[q.key] === 'nao' && <Check size={14} className="text-white" />}
-                     </div>
-                     <span className={`text-sm ${formData[q.key] === 'nao' ? 'text-white' : 'text-uni-muted group-hover:text-white'}`}>Não</span>
-                   </div>
+                   ))}
                 </div>
               </div>
             ))}
@@ -294,10 +288,10 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [currentScreen, setCurrentScreen] = useState('login'); 
   const [chatHistory, setChatHistory] = useState([
-    { role: 'model', text: 'Olá, sou o UniHelp! Como posso te ajudar hoje?', feedback: null }
+    { role: 'model', text: 'Olá! Sou o UniHelp. Posso tirar dúvidas usando as avaliações reais dos alunos.', feedback: null }
   ]);
   const [isLoading, setIsLoading] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // Novo estado para o menu
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -307,19 +301,31 @@ export default function App() {
         else { setUser(null); setCurrentScreen('login'); }
       });
       return () => unsub();
-    } else {
-      setCurrentScreen('login');
-    }
+    } else { setCurrentScreen('login'); }
   }, []);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory.length, currentScreen]);
 
-  const triggerValidation = () => {
-    const validation = MOCK_VALIDATIONS[Math.floor(Math.random() * MOCK_VALIDATIONS.length)];
-    setChatHistory(prev => [
-      ...prev,
-      { role: 'model', text: `🤔 **Ajude a comunidade:**\n\n"${validation.text}"\n\nEssa informação procede?`, type: 'validation', validationId: validation.id }
-    ]);
+  // Função para buscar conhecimento no Firebase
+  const fetchKnowledge = async () => {
+    if (!db) return "";
+    try {
+      // Busca as últimas 10 avaliações para usar como contexto
+      const q = query(collection(db, "avaliacoes"), orderBy("data", "desc"), limit(10));
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) return "";
+
+      let knowledgeBase = "Aqui estão as avaliações recentes dos alunos:\n";
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        knowledgeBase += `- Sobre ${data.disciplina} com ${data.professor}: "${data.opiniaoGeral}". (Explicação clara? ${data.explicacaoClara}, Prova justa? ${data.avaliacoesAlinhadas})\n`;
+      });
+      return knowledgeBase;
+    } catch (error) {
+      console.error("Erro ao buscar conhecimento:", error);
+      return "";
+    }
   };
 
   const handleSendMessage = async (text) => {
@@ -329,8 +335,21 @@ export default function App() {
     try {
       if (!GEMINI_API_KEY) throw new Error("API Key ausente");
 
-      const systemInstruction = "(Responda de forma direta, resumida e didática, com no máximo 3 parágrafos curtos. Use bullet points se precisar listar algo.)";
-      const finalPrompt = `${text} ${systemInstruction}`;
+      // 1. Busca conhecimento no banco de dados
+      const knowledge = await fetchKnowledge();
+
+      // 2. Monta o prompt enriquecido
+      const systemInstruction = `
+        Você é o UniHelp, um assistente acadêmico.
+        ${knowledge ? "Use as seguintes opiniões reais de alunos para embasar sua resposta, mas mantenha a privacidade deles:\n" + knowledge : "Ainda não há avaliações suficientes no banco de dados."}
+        
+        Instruções de formatação:
+        - Seja direto e conciso (máximo 3 parágrafos curtos).
+        - Use formatação Markdown (negrito, listas) para facilitar a leitura.
+        - Se a pergunta for sobre algo que está nas avaliações, cite "Alguns alunos mencionaram que...".
+      `;
+      
+      const finalPrompt = `${systemInstruction}\n\nPergunta do usuário: ${text}`;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
@@ -344,34 +363,36 @@ export default function App() {
       const botResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "Erro ao gerar resposta.";
       setChatHistory(prev => [...prev, { role: 'model', text: botResponse, feedback: null }]);
       
-      if (Math.random() > 0.7) {
-        setTimeout(triggerValidation, 1500);
-      }
+      if (Math.random() > 0.7) setTimeout(triggerValidation, 1500);
 
     } catch (error) {
-      setChatHistory(prev => [...prev, { role: 'model', text: 'Erro de conexão. Verifique o .env', isError: true }]);
+      setChatHistory(prev => [...prev, { role: 'model', text: 'Erro de conexão.', isError: true }]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleFeedback = (index, type) => {
-    setChatHistory(prev => prev.map((msg, i) => i === index ? { ...msg, feedback: type } : msg));
+  const triggerValidation = () => {
+    const validation = MOCK_VALIDATIONS[Math.floor(Math.random() * MOCK_VALIDATIONS.length)];
+    setChatHistory(prev => [...prev, { role: 'model', text: `🤔 **Ajude a comunidade:**\n\n"${validation.text}"\n\nIsso procede?`, type: 'validation', validationId: validation.id }]);
   };
 
-  const handleValidationResponse = (id, response) => {
-    setChatHistory(prev => [
-      ...prev,
-      { role: 'model', text: `✅ Obrigado! Sua resposta ajuda a manter o UniHelp atualizado.`, type: 'text' }
-    ]);
+  const handleValidationResponse = async (id, response) => {
+    // Salva a validação no Firebase
+    if(db) {
+      try {
+        await addDoc(collection(db, "validacoes_fatos"), {
+          fatoId: id,
+          confirmacao: response, // 'verdade', 'fake', 'skip'
+          data: new Date()
+        });
+      } catch(e) { console.error(e); }
+    }
+    
+    setChatHistory(prev => [...prev, { role: 'model', text: `✅ Obrigado! Sua resposta ajuda a manter o UniHelp atualizado.`, type: 'text' }]);
   };
 
-  const handleLogout = () => {
-    if(auth) signOut(auth);
-    setUser(null);
-    setCurrentScreen('login');
-    setMobileMenuOpen(false);
-  }
+  const handleLogout = () => { if(auth) signOut(auth); setUser(null); setCurrentScreen('login'); setMobileMenuOpen(false); }
 
   if (!user && currentScreen === 'login') return <LoginScreen onNavigate={setCurrentScreen} onLoginSuccess={(u) => { setUser(u); setCurrentScreen('home'); }} />;
   if (!user && currentScreen === 'register') return <RegisterScreen onNavigate={setCurrentScreen} onLoginSuccess={(u) => { setUser(u); setCurrentScreen('home'); }} />;
@@ -379,8 +400,6 @@ export default function App() {
 
   return (
     <div className="w-full h-[100dvh] bg-uni-bg flex flex-col font-sans text-uni-text overflow-hidden relative">
-      
-      {/* Sidebar Mobile (Menu Overlay) */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)}></div>
@@ -395,60 +414,41 @@ export default function App() {
         </div>
       )}
 
-      {/* Header */}
       <div className="h-16 md:h-20 min-h-[4rem] flex items-center px-4 md:px-6 justify-between bg-uni-bg/90 backdrop-blur-md z-30 border-b border-uni-border/30 shrink-0">
           <div className="w-10 flex justify-start">
             {currentScreen === 'chat' ? (
               <button onClick={() => setCurrentScreen('home')} className="p-2 -ml-2 hover:bg-uni-card rounded-full transition"><ArrowLeft className="text-white" /></button>
             ) : (
-              // Botão de Menu agora funciona!
               <button onClick={() => setMobileMenuOpen(true)} className="p-2 -ml-2 hover:bg-uni-card rounded-full transition"><Menu className="text-white" /></button>
             )}
           </div>
-          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <LogoUniHelp className="h-8" />
-          </div>
+          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2"><LogoUniHelp className="h-8" /></div>
           <div className="w-10 flex justify-end">
-            <div className="w-9 h-9 rounded-full bg-uni-card border border-uni-border flex items-center justify-center hover:border-uni-primary transition cursor-pointer" onClick={handleLogout}>
-              <User size={18} className="text-uni-muted"/>
-            </div>
+            <div className="w-9 h-9 rounded-full bg-uni-card border border-uni-border flex items-center justify-center hover:border-uni-primary transition cursor-pointer" onClick={handleLogout}><User size={18} className="text-uni-muted"/></div>
           </div>
       </div>
 
-      {/* Container Principal */}
       <div className="flex-1 w-full h-full relative overflow-y-auto custom-scrollbar scroll-smooth">
-        
-        {/* Home */}
         {currentScreen === 'home' && (
           <div className="p-6 pb-24 max-w-3xl mx-auto w-full">
             <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[2rem] p-8 mb-8 text-white relative overflow-hidden shadow-2xl group cursor-pointer transition-transform hover:scale-[1.01]" onClick={() => setCurrentScreen('chat')}>
               <div className="relative z-10">
                 <h2 className="text-2xl font-bold mb-6 leading-tight max-w-[70%]">Tire dúvidas sobre <br/> suas disciplinas</h2>
-                <button className="bg-white text-blue-700 px-6 py-2.5 rounded-full font-bold text-sm hover:bg-gray-100 transition shadow-md flex items-center gap-2">
-                  <Sparkles size={16} /> Iniciar chat
-                </button>
+                <button className="bg-white text-blue-700 px-6 py-2.5 rounded-full font-bold text-sm hover:bg-gray-100 transition shadow-md flex items-center gap-2"><Sparkles size={16} /> Iniciar chat</button>
               </div>
               <img src="https://cdn-icons-png.flaticon.com/512/4712/4712035.png" className="absolute right-[-20px] bottom-[-30px] w-48 opacity-90 transition-transform group-hover:scale-110 group-hover:rotate-6" alt="Bot" />
             </div>
-
             <div className="mb-6">
               <h3 className="text-sm font-bold text-uni-muted mb-4 flex items-center gap-2 uppercase tracking-wider"><ShieldCheck size={14}/> Valide informações</h3>
               <div className="p-4 bg-uni-card border border-uni-border rounded-2xl flex items-center justify-between group cursor-pointer hover:border-uni-primary/50 transition" onClick={() => setCurrentScreen('chat')}>
-                 <div>
-                   <p className="text-white font-medium">Ajude outros alunos</p>
-                   <p className="text-xs text-uni-muted">Responda perguntas rápidas sobre professores</p>
-                 </div>
+                 <div><p className="text-white font-medium">Ajude outros alunos</p><p className="text-xs text-uni-muted">Responda perguntas rápidas sobre professores</p></div>
                  <ChevronDown className="-rotate-90 text-uni-muted" size={20}/>
               </div>
             </div>
-
-            <button onClick={() => setCurrentScreen('evaluation')} className="w-full py-4 bg-uni-card border border-uni-border rounded-2xl text-center text-white font-medium hover:bg-uni-border transition shadow-sm">
-              Avaliar uma Disciplina
-            </button>
+            <button onClick={() => setCurrentScreen('evaluation')} className="w-full py-4 bg-uni-card border border-uni-border rounded-2xl text-center text-white font-medium hover:bg-uni-border transition shadow-sm">Avaliar uma Disciplina</button>
           </div>
         )}
 
-        {/* Chat */}
         {currentScreen === 'chat' && (
           <div className="w-full max-w-4xl mx-auto min-h-full flex flex-col pb-32">
             <div className="flex-1 p-4 space-y-6">
@@ -459,13 +459,8 @@ export default function App() {
                       {msg.role === 'user' ? <User size={16} /> : <Bot size={18} />}
                     </div>
                     <div className="flex flex-col gap-2 w-full min-w-0">
-                      <div className={`p-4 text-sm md:text-base leading-relaxed shadow-sm ${
-                        msg.role === 'user' ? 'bg-uni-primary text-white rounded-2xl rounded-tr-sm shadow-blue-900/20' : 
-                        msg.type === 'validation' ? 'bg-uni-card border border-uni-primary/30 rounded-2xl' :
-                        'bg-uni-card text-uni-text border border-uni-border rounded-2xl rounded-tl-sm'
-                      }`}>
+                      <div className={`p-4 text-sm md:text-base leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-uni-primary text-white rounded-2xl rounded-tr-sm shadow-blue-900/20' : msg.type === 'validation' ? 'bg-uni-card border border-uni-primary/30 rounded-2xl' : 'bg-uni-card text-uni-text border border-uni-border rounded-2xl rounded-tl-sm'}`}>
                         <ReactMarkdown className="prose prose-invert prose-sm max-w-none components={{ strong: ({node, ...props}) => <span className='font-bold text-blue-300' {...props} /> }}">{msg.text}</ReactMarkdown>
-
                         {msg.type === 'validation' && (
                           <div className="mt-4 pt-4 border-t border-uni-border flex gap-3 justify-center">
                              <button onClick={() => handleValidationResponse(msg.validationId, 'verdade')} className="flex-1 bg-green-500/10 text-green-400 border border-green-500/30 py-2 rounded-lg text-xs font-bold hover:bg-green-500/20 transition">É VERDADE</button>
@@ -474,21 +469,6 @@ export default function App() {
                           </div>
                         )}
                       </div>
-                      
-                      {msg.role === 'model' && msg.type !== 'validation' && !msg.isError && idx > 0 && (
-                        <div className="flex gap-2">
-                          {msg.feedback === 'yes' ? (
-                             <div className="text-xs text-uni-primary flex items-center gap-1 font-bold animate-fade-in"><Check size={14} /> Obrigado!</div>
-                          ) : msg.feedback === 'no' ? (
-                             <div className="text-xs text-uni-muted flex items-center gap-1 animate-fade-in">Anotado.</div>
-                          ) : (
-                            <>
-                              <button onClick={() => handleFeedback(idx, 'yes')} className="flex items-center gap-1.5 bg-white text-black text-xs font-bold px-4 py-1.5 rounded-full hover:bg-gray-200 transition shadow-sm active:scale-95">Sim</button>
-                              <button onClick={() => handleFeedback(idx, 'no')} className="flex items-center gap-1.5 bg-black/40 border border-uni-border/50 text-white text-xs font-medium px-4 py-1.5 rounded-full hover:bg-black/60 transition active:scale-95">Não</button>
-                            </>
-                          )}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -499,7 +479,6 @@ export default function App() {
           </div>
         )}
       </div>
-
       {currentScreen === 'chat' && <ChatInput onSend={handleSendMessage} isLoading={isLoading} />}
     </div>
   );
