@@ -1,20 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, User, Bot, Menu, ArrowLeft, Loader2, Sparkles, ChevronDown, Check, X, Star, ShieldCheck, LogOut, Circle, MessageSquare, Clock, Filter } from 'lucide-react';
+import { Send, User, Bot, Menu, ArrowLeft, Loader2, Sparkles, ChevronDown, Check, X, Star, ShieldCheck, LogOut, Circle, ThumbsUp, ThumbsDown, MessageSquare, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown'; 
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, doc, setDoc, getDoc, updateDoc, where } from "firebase/firestore";
+import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, doc, setDoc, getDoc, updateDoc, arrayUnion, where } from "firebase/firestore";
 
-// --- CONFIGURAÇÃO DO FIREBASE (HÍBRIDA) ---
+// --- CONFIGURAÇÃO DO FIREBASE ---
 const firebaseConfig = {
-storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-essagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
+// Inicializa Firebase
 let auth, db;
 try {
   if (firebaseConfig.apiKey) {
@@ -31,11 +32,12 @@ try {
 // --- CONFIGURAÇÃO DA API GEMINI ---
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ""; 
 
-// --- DADOS ---
+// --- DADOS PARA OS MENUS ---
 const MOCK_SUBJECTS = ["Engenharia de Software", "Cálculo 1", "Física 3", "Algoritmos", "Ética", "Banco de Dados"];
 const MOCK_PROFESSORS = ["Robson Correia", "Ana Paula", "Carlos Silva", "Fernanda Lima", "Roberto Santos"];
 const MOCK_PERIODS = ["2024.1", "2023.2", "2023.1", "2022.2"];
 
+// --- DADOS MOCKADOS (Validação) ---
 const MOCK_VALIDATIONS = [
   { id: 1, text: "O professor Robson cobra presença em todas as aulas de Engenharia de Software?", subject: "Engenharia de Software" },
   { id: 2, text: "Dizem que a prova de Cálculo 1 permite consulta a uma folha A4. Confere?", subject: "Cálculo 1" },
@@ -44,124 +46,58 @@ const MOCK_VALIDATIONS = [
 
 // --- COMPONENTES ---
 
-const LogoUniHelp = ({ className = "h-8" }) => (
-  <div className="flex items-center gap-2 animate-fade-in">
-    <img 
-      src="/logo.png" 
-      alt="UniHelp" 
-      className={`object-contain ${className}`}
-      onError={(e) => {
-        e.target.style.display = 'none';
-        e.target.nextSibling.style.display = 'flex';
-      }}
-    />
-    <div className="hidden items-center gap-2 text-white font-bold text-xl">
-       <Bot className="text-uni-primary" /> UniHelp
-    </div>
-  </div>
-);
-
-// Componente de Input Atualizado com Painel de Filtros
-const ChatInput = ({ onSend, isLoading, filters, setFilters }) => {
-  const [localText, setLocalText] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-
-  const handleSend = () => {
-    if (!localText.trim() || isLoading) return;
-    onSend(localText);
-    setLocalText('');
-    setShowFilters(false); // Esconde filtros ao enviar
-  };
-
-  const activeFiltersCount = Object.values(filters).filter(Boolean).length;
-
+// NOVA LOGO PREMIUM (Feita com código, sem imagens externas)
+const LogoUniHelp = ({ size = "normal" }) => {
+  const isLarge = size === "large";
+  
   return (
-    <div className="absolute bottom-0 left-0 w-full z-20 flex flex-col justify-end pointer-events-none">
+    <div className={`flex items-center gap-3 select-none ${isLarge ? 'scale-125' : ''}`}>
+      {/* Ícone com Gradiente e Sombra Neon */}
+      <div className={`
+        relative flex items-center justify-center 
+        bg-gradient-to-tr from-blue-600 to-cyan-400 
+        text-white rounded-2xl shadow-lg shadow-blue-500/30
+        ${isLarge ? 'w-16 h-16 rounded-[1.2rem]' : 'w-10 h-10'}
+      `}>
+        <Bot size={isLarge ? 32 : 20} strokeWidth={2.5} />
+        
+        {/* Brilho interno */}
+        <div className="absolute inset-0 rounded-2xl bg-white/20 blur-[2px]" style={{ clipPath: 'inset(0 0 50% 0)' }}></div>
+      </div>
       
-      {/* Painel de Filtros (Expansível) */}
-      {showFilters && (
-        <div className="w-full bg-uni-bg/95 backdrop-blur-md border-t border-uni-border p-4 pointer-events-auto animate-fade-in-up">
-          <div className="max-w-3xl mx-auto space-y-3">
-            <div className="flex justify-between items-center text-xs font-bold text-uni-muted uppercase tracking-wider">
-              <span>Filtrar contexto da IA</span>
-              <button onClick={() => setFilters({ disciplina: '', professor: '', periodo: '' })} className="text-uni-primary hover:underline">Limpar tudo</button>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="relative">
-                <select 
-                  value={filters.disciplina} 
-                  onChange={(e) => setFilters({...filters, disciplina: e.target.value})}
-                  className="w-full bg-uni-card border border-uni-border rounded-lg pl-3 pr-8 py-2 text-sm text-white appearance-none focus:border-uni-primary outline-none"
-                >
-                  <option value="">Todas Disciplinas</option>
-                  {MOCK_SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-uni-muted pointer-events-none"/>
-              </div>
-              <div className="relative">
-                <select 
-                  value={filters.professor} 
-                  onChange={(e) => setFilters({...filters, professor: e.target.value})}
-                  className="w-full bg-uni-card border border-uni-border rounded-lg pl-3 pr-8 py-2 text-sm text-white appearance-none focus:border-uni-primary outline-none"
-                >
-                  <option value="">Todos Profs.</option>
-                  {MOCK_PROFESSORS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-                <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-uni-muted pointer-events-none"/>
-              </div>
-              <div className="relative">
-                <select 
-                  value={filters.periodo} 
-                  onChange={(e) => setFilters({...filters, periodo: e.target.value})}
-                  className="w-full bg-uni-card border border-uni-border rounded-lg pl-3 pr-8 py-2 text-sm text-white appearance-none focus:border-uni-primary outline-none"
-                >
-                  <option value="">Todos Períodos</option>
-                  {MOCK_PERIODS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-                <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-uni-muted pointer-events-none"/>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Texto com Fonte Moderna */}
+      <span className={`
+        font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-100 to-white
+        ${isLarge ? 'text-4xl' : 'text-xl'}
+      `}>
+        UniHelp
+      </span>
+    </div>
+  );
+};
 
-      {/* Barra de Input */}
-      <div className="w-full p-4 md:p-6 bg-gradient-to-t from-uni-bg via-uni-bg to-transparent">
-        <div className="max-w-3xl mx-auto flex items-center gap-2 md:gap-3 pointer-events-auto">
-          
-          {/* Botão de Toggle Filtro */}
-          <button 
-            onClick={() => setShowFilters(!showFilters)}
-            className={`p-3 rounded-full shadow-lg transition-all flex items-center justify-center relative ${showFilters || activeFiltersCount > 0 ? 'bg-uni-primary text-white' : 'bg-uni-card border border-uni-border text-uni-muted hover:text-white'}`}
-          >
-            <Filter size={20} />
-            {activeFiltersCount > 0 && !showFilters && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white border border-uni-bg">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
-
-          <div className="flex-1 flex items-center gap-2 bg-uni-card p-2 pr-2 pl-4 md:pl-6 rounded-full border border-uni-border/50 focus-within:border-uni-primary/50 transition-all shadow-2xl ring-1 ring-white/5">
-            <input
-              type="text"
-              value={localText}
-              onChange={(e) => setLocalText(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={activeFiltersCount > 0 ? "Faça uma pergunta específica..." : "Pergunte sobre qualquer coisa..."}
-              className="flex-1 bg-transparent text-uni-text text-base outline-none placeholder:text-uni-muted/60 min-w-0"
-              disabled={isLoading}
-              autoFocus
-            />
-            <button 
-              onClick={handleSend}
-              disabled={!localText.trim() || isLoading}
-              className="p-3 md:p-3.5 rounded-full bg-uni-primary text-white shadow-lg hover:bg-uni-primary-dark disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center shrink-0"
-            >
-              {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} className="ml-0.5" />}
-            </button>
-          </div>
-        </div>
+const ChatInput = ({ onSend, isLoading }) => {
+  const [localText, setLocalText] = useState('');
+  return (
+    <div className="absolute bottom-0 left-0 w-full p-4 md:p-6 bg-gradient-to-t from-uni-bg via-uni-bg/95 to-transparent z-20 pointer-events-none">
+      <div className="max-w-3xl mx-auto flex items-center gap-3 bg-uni-card p-2 pr-2 pl-4 md:pl-6 rounded-full border border-uni-border/50 focus-within:border-uni-primary/50 transition-all shadow-2xl ring-1 ring-white/5 pointer-events-auto">
+        <input
+          type="text"
+          value={localText}
+          onChange={(e) => setLocalText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && !isLoading && onSend(localText) && setLocalText('')}
+          placeholder="Escrever..."
+          className="flex-1 bg-transparent text-uni-text text-base outline-none placeholder:text-uni-muted/60 min-w-0"
+          disabled={isLoading}
+          autoFocus
+        />
+        <button 
+          onClick={() => { if(localText.trim()) { onSend(localText); setLocalText(''); } }}
+          disabled={!localText.trim() || isLoading}
+          className="p-3 md:p-3.5 rounded-full bg-uni-primary text-white shadow-lg hover:bg-uni-primary-dark disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center shrink-0"
+        >
+          {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} className="ml-0.5" />}
+        </button>
       </div>
     </div>
   );
@@ -181,22 +117,25 @@ const LoginScreen = ({ onNavigate, onLoginSuccess }) => {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
         if(email && password) setTimeout(() => onLoginSuccess({ email }), 1000);
-        else { alert("Modo Demo: Preencha os campos."); setLoading(false); }
+        else { alert("Preencha os campos (Modo Demo)"); setLoading(false); }
       }
-    } catch (err) { alert("Erro no login: " + err.message); setLoading(false); }
+    } catch (err) { 
+      alert("Erro no login: " + err.message); 
+      setLoading(false); 
+    }
   };
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-uni-bg overflow-y-auto custom-scrollbar p-8">
       <div className="w-full max-w-md flex flex-col items-center">
-        <div className="mb-8 scale-150"><LogoUniHelp className="h-16" /></div>
+        <div className="mb-12"><LogoUniHelp size="large" /></div>
         <div className="w-full space-y-4">
-          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary" />
-          <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary" />
-          <button onClick={handleLogin} disabled={loading} className="w-full py-4 bg-uni-primary rounded-xl text-white font-bold shadow-lg mt-4 flex justify-center">
+          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary transition" />
+          <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary transition" />
+          <button onClick={handleLogin} disabled={loading} className="w-full py-4 bg-uni-primary rounded-xl text-white font-bold shadow-lg shadow-blue-500/20 mt-4 flex justify-center hover:scale-[1.02] transition-transform">
             {loading ? <Loader2 className="animate-spin" /> : "Entrar"}
           </button>
-          <button onClick={() => onNavigate('register')} className="text-uni-muted text-sm hover:text-white transition w-full text-center">Criar conta</button>
+          <button onClick={() => onNavigate('register')} className="text-uni-muted text-sm hover:text-white transition w-full text-center mt-4">Não tem conta? <span className="text-uni-primary font-bold">Crie agora</span></button>
         </div>
       </div>
     </div>
@@ -213,22 +152,29 @@ const RegisterScreen = ({ onNavigate, onLoginSuccess }) => {
     if (auth) {
       try { 
         await createUserWithEmailAndPassword(auth, email, password); 
-      } catch(e) { alert("Erro: " + e.message); setLoading(false); }
-    } else { setTimeout(() => onLoginSuccess({ email }), 1000); }
+        // O onAuthStateChanged no App cuidará do redirecionamento
+      } catch(e) {
+        alert("Erro ao cadastrar: " + e.message);
+        setLoading(false);
+      }
+    } else {
+        setTimeout(() => onLoginSuccess({ email }), 1000);
+    }
   };
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-uni-bg overflow-y-auto custom-scrollbar p-8">
       <div className="w-full max-w-md">
-        <h1 className="text-3xl font-bold text-white mb-6 text-center">Criar Conta</h1>
+        <div className="flex justify-center mb-8"><LogoUniHelp size="large" /></div>
+        <h1 className="text-2xl font-bold text-white mb-6 text-center">Criar sua conta</h1>
         <div className="space-y-4">
-          <input type="text" placeholder="Nome" className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary" />
-          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary" />
-          <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary" />
-          <button onClick={handleRegister} disabled={loading} className="w-full py-4 bg-uni-primary rounded-xl text-white font-bold shadow-lg mt-4 flex justify-center">
+          <input type="text" placeholder="Nome completo" className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary transition" />
+          <input type="email" placeholder="Email institucional" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary transition" />
+          <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary transition" />
+          <button onClick={handleRegister} disabled={loading} className="w-full py-4 bg-uni-primary rounded-xl text-white font-bold shadow-lg mt-4 flex justify-center hover:scale-[1.02] transition-transform">
              {loading ? <Loader2 className="animate-spin" /> : "Cadastrar"}
           </button>
-          <button onClick={() => onNavigate('login')} className="w-full text-uni-muted text-sm hover:text-white transition text-center">Voltar para Login</button>
+          <button onClick={() => onNavigate('login')} className="w-full text-uni-muted text-sm hover:text-white transition text-center mt-4">Já tenho conta. <span className="text-uni-primary font-bold">Fazer Login</span></button>
         </div>
       </div>
     </div>
@@ -237,12 +183,18 @@ const RegisterScreen = ({ onNavigate, onLoginSuccess }) => {
 
 const EvaluationScreen = ({ onNavigate }) => {
   const [formData, setFormData] = useState({
-    disciplina: '', professor: '', periodo: '', explicacaoClara: null, avaliacoesAlinhadas: null, opiniaoGeral: ''
+    disciplina: '',
+    professor: '',
+    periodo: '',
+    explicacaoClara: null,
+    avaliacoesAlinhadas: null,
+    opiniaoGeral: ''
   });
   const [enviado, setEnviado] = useState(false);
 
   const handleSubmit = async () => {
-    if (!formData.disciplina || !formData.professor || !formData.periodo) return alert("Preencha os campos!");
+    if (!formData.disciplina || !formData.professor || !formData.periodo) return alert("Preencha os campos obrigatórios!");
+    
     if (db) {
       try {
         await addDoc(collection(db, "avaliacoes"), {
@@ -250,16 +202,24 @@ const EvaluationScreen = ({ onNavigate }) => {
           data: new Date(),
           userId: auth?.currentUser?.uid || 'anon'
         });
-      } catch (e) { console.error("Erro ao salvar:", e); }
+      } catch (e) { 
+        console.error("Erro ao salvar:", e);
+        alert("Erro ao salvar a avaliação.");
+        return;
+      }
     }
+    
     setEnviado(true);
     setTimeout(() => { setEnviado(false); onNavigate('home'); }, 2000);
   };
 
   if (enviado) return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-uni-bg animate-fade-in">
-      <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mb-4"><Check size={40} className="text-green-500" /></div>
-      <h2 className="text-2xl font-bold text-white">Avaliação Salva!</h2>
+      <div className="w-24 h-24 bg-green-500/10 border-2 border-green-500 rounded-full flex items-center justify-center mb-6 animate-bounce-slow">
+        <Check size={48} className="text-green-500" />
+      </div>
+      <h2 className="text-3xl font-bold text-white mb-2">Avaliação Enviada!</h2>
+      <p className="text-uni-muted text-center max-w-xs">Sua opinião ajuda a tornar nossa IA mais inteligente.</p>
     </div>
   );
 
@@ -267,19 +227,27 @@ const EvaluationScreen = ({ onNavigate }) => {
     <div className="w-full h-full flex flex-col bg-uni-bg relative">
       <div className="p-6 border-b border-uni-border flex items-center justify-between sticky top-0 bg-uni-bg/95 backdrop-blur-md z-30">
         <button onClick={() => onNavigate('home')} className="p-2 -ml-2 hover:bg-uni-card rounded-full transition"><ArrowLeft className="text-white" /></button>
-        <h1 className="text-lg font-bold text-white absolute left-1/2 transform -translate-x-1/2">Avaliar</h1><div className="w-8" />
+        <h1 className="text-lg font-bold text-white absolute left-1/2 transform -translate-x-1/2">Avaliar</h1>
+        <div className="w-8" />
       </div>
+      
       <div className="flex-1 w-full relative overflow-y-auto custom-scrollbar">
           <div className="p-6 space-y-6 pb-32 max-w-2xl mx-auto w-full">
+            
+            {/* Dropdowns */}
             {[
               { label: "Disciplina", key: "disciplina", options: MOCK_SUBJECTS },
               { label: "Professor", key: "professor", options: MOCK_PROFESSORS },
               { label: "Período em que cursou", key: "periodo", options: MOCK_PERIODS }
             ].map((field) => (
-              <div key={field.key} className="space-y-2 bg-uni-card/50 p-4 rounded-xl border border-uni-border/50">
-                <label className="text-xs font-bold text-uni-muted ml-1 uppercase">{field.label}</label>
+              <div key={field.key} className="space-y-2 bg-uni-card/30 p-4 rounded-xl border border-uni-border/50">
+                <label className="text-xs font-bold text-uni-muted ml-1 uppercase tracking-wide">{field.label}</label>
                 <div className="relative">
-                  <select value={formData[field.key]} onChange={e => setFormData({...formData, [field.key]: e.target.value})} className="w-full bg-uni-card border border-uni-border rounded-lg px-4 py-3 text-uni-text outline-none appearance-none cursor-pointer focus:border-uni-primary transition">
+                  <select 
+                    value={formData[field.key]} 
+                    onChange={e => setFormData({...formData, [field.key]: e.target.value})} 
+                    className="w-full bg-uni-card border border-uni-border rounded-lg px-4 py-3 text-uni-text outline-none appearance-none cursor-pointer focus:border-uni-primary transition"
+                  >
                     <option value="">Selecionar</option>
                     {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
@@ -287,29 +255,41 @@ const EvaluationScreen = ({ onNavigate }) => {
                 </div>
               </div>
             ))}
+
+            {/* Perguntas Sim/Não */}
             {[
-              { label: "O professor explica de forma clara?", key: "explicacaoClara" },
-              { label: "As provas são justas?", key: "avaliacoesAlinhadas" }
+              { label: "O professor explica os conteúdos da aula de forma clara.", key: "explicacaoClara" },
+              { label: "As avaliações (provas, atividades) estão alinhados com o que foi ensinado.", key: "avaliacoesAlinhadas" }
             ].map((q) => (
-              <div key={q.key} className="bg-uni-card/50 p-5 rounded-xl border border-uni-border/50 space-y-4">
+              <div key={q.key} className="bg-uni-card/30 p-5 rounded-xl border border-uni-border/50 space-y-4">
                 <p className="text-sm font-medium text-white">{q.label}</p>
                 <div className="flex items-center gap-8 px-2">
                    {['sim', 'nao'].map(opt => (
                      <div key={opt} className="flex items-center gap-3 cursor-pointer group" onClick={() => setFormData({...formData, [q.key]: opt})}>
-                       <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${formData[q.key] === opt ? 'border-uni-primary bg-uni-primary' : 'border-uni-muted group-hover:border-white'}`}>
-                          {formData[q.key] === opt && <Check size={14} className="text-white" />}
+                       <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${formData[q.key] === opt ? 'border-uni-primary bg-uni-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'border-uni-muted group-hover:border-white'}`}>
+                          {formData[q.key] === opt && <div className="w-2.5 h-2.5 bg-white rounded-full"></div>}
                        </div>
-                       <span className={`text-sm capitalize ${formData[q.key] === opt ? 'text-white' : 'text-uni-muted group-hover:text-white'}`}>{opt === 'nao' ? 'Não' : 'Sim'}</span>
+                       <span className={`text-sm capitalize ${formData[q.key] === opt ? 'text-white font-bold' : 'text-uni-muted group-hover:text-white'}`}>{opt === 'nao' ? 'Não' : 'Sim'}</span>
                      </div>
                    ))}
                 </div>
               </div>
             ))}
-            <div className="space-y-2 bg-uni-card/50 p-4 rounded-xl border border-uni-border/50">
-              <label className="text-xs font-bold text-uni-muted ml-1 uppercase">Opinião Geral</label>
-              <textarea value={formData.opiniaoGeral} onChange={e => setFormData({...formData, opiniaoGeral: e.target.value})} placeholder="O que você achou..." className="w-full bg-uni-card border border-uni-border rounded-lg px-4 py-3 text-white h-32 resize-none outline-none focus:border-uni-primary transition placeholder:text-uni-muted/50"></textarea>
+
+            {/* Text Area */}
+            <div className="space-y-2 bg-uni-card/30 p-4 rounded-xl border border-uni-border/50">
+              <label className="text-xs font-bold text-uni-muted ml-1 uppercase">No geral, como você avalia a disciplina?</label>
+              <textarea 
+                value={formData.opiniaoGeral} 
+                onChange={e => setFormData({...formData, opiniaoGeral: e.target.value})} 
+                placeholder="Escreva aqui..." 
+                className="w-full bg-uni-card border border-uni-border rounded-lg px-4 py-3 text-white h-32 resize-none outline-none focus:border-uni-primary transition placeholder:text-uni-muted/50"
+              ></textarea>
             </div>
-            <button onClick={handleSubmit} className="w-full py-4 bg-white text-uni-bg font-bold rounded-xl hover:bg-gray-200 transition shadow-lg active:scale-[0.98]">Enviar Avaliação</button>
+
+            <button onClick={handleSubmit} className="w-full py-4 bg-white text-uni-bg font-bold rounded-xl hover:bg-gray-200 transition shadow-lg active:scale-[0.98]">
+              Enviar Avaliação
+            </button>
           </div>
       </div>
     </div>
@@ -322,12 +302,24 @@ const ChatsListScreen = ({ onNavigate, onLoadChat }) => {
 
   useEffect(() => {
     const fetchChats = async () => {
-      if (!db || !auth?.currentUser) { setLoading(false); return; }
+      if (!db || !auth?.currentUser) {
+        setLoading(false);
+        return;
+      }
       try {
-        const q = query(collection(db, "chats"), where("userId", "==", auth.currentUser.uid), orderBy("lastMessageAt", "desc"));
+        const q = query(
+          collection(db, "chats"),
+          where("userId", "==", auth.currentUser.uid),
+          orderBy("lastMessageAt", "desc")
+        );
         const querySnapshot = await getDocs(q);
-        setChats(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      } catch (error) { console.error(error); } finally { setLoading(false); }
+        const fetchedChats = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setChats(fetchedChats);
+      } catch (error) {
+        console.error("Erro ao buscar chats:", error);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchChats();
   }, []);
@@ -336,86 +328,100 @@ const ChatsListScreen = ({ onNavigate, onLoadChat }) => {
     <div className="w-full h-full flex flex-col bg-uni-bg relative">
       <div className="p-6 border-b border-uni-border flex items-center justify-between sticky top-0 bg-uni-bg/95 backdrop-blur-md z-30">
         <button onClick={() => onNavigate('home')} className="p-2 -ml-2 hover:bg-uni-card rounded-full transition"><ArrowLeft className="text-white" /></button>
-        <h1 className="text-lg font-bold text-white absolute left-1/2 transform -translate-x-1/2">Meus Chats</h1><div className="w-8" />
+        <h1 className="text-lg font-bold text-white absolute left-1/2 transform -translate-x-1/2">Meus Chats</h1>
+        <div className="w-8" />
       </div>
+      
       <div className="flex-1 w-full relative overflow-y-auto custom-scrollbar p-4">
-        {loading ? <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin text-uni-primary" /></div> : 
-         chats.length === 0 ? <div className="flex flex-col items-center justify-center h-full text-uni-muted"><MessageSquare size={48} className="mb-4 opacity-50" /><p>Nenhum chat.</p></div> : 
-         <div className="space-y-2">{chats.map(chat => (
-            <button key={chat.id} onClick={() => onLoadChat(chat.messages)} className="w-full p-4 bg-uni-card/50 hover:bg-uni-card border border-uni-border/50 rounded-xl flex items-center gap-4 transition">
-              <div className="w-10 h-10 rounded-full bg-uni-primary/20 flex items-center justify-center"><Bot size={20} className="text-uni-primary" /></div>
-              <div className="flex-1 text-left truncate"><p className="text-white font-medium truncate">{chat.messages[1]?.text || "Nova conversa"}</p><p className="text-xs text-uni-muted flex items-center gap-1"><Clock size={12} /> {new Date(chat.lastMessageAt?.toDate()).toLocaleDateString()}</p></div>
-            </button>
-         ))}</div>}
+        {loading ? (
+          <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin text-uni-primary" /></div>
+        ) : chats.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-uni-muted">
+            <MessageSquare size={48} className="mb-4 opacity-50" />
+            <p>Nenhum chat encontrado.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {chats.map(chat => (
+              <button 
+                key={chat.id} 
+                onClick={() => onLoadChat(chat.messages)}
+                className="w-full p-4 bg-uni-card/50 hover:bg-uni-card border border-uni-border/50 rounded-xl flex items-center gap-4 transition"
+              >
+                <div className="w-10 h-10 rounded-full bg-uni-primary/20 flex items-center justify-center">
+                  <Bot size={20} className="text-uni-primary" />
+                </div>
+                <div className="flex-1 text-left truncate">
+                  <p className="text-white font-medium truncate">{chat.messages[1]?.text || "Nova conversa"}</p>
+                  <p className="text-xs text-uni-muted flex items-center gap-1">
+                    <Clock size={12} /> 
+                    {new Date(chat.lastMessageAt?.toDate()).toLocaleDateString()}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
+
 // --- APP PRINCIPAL ---
 export default function App() {
   const [user, setUser] = useState(null);
   const [currentScreen, setCurrentScreen] = useState('login'); 
-  const [chatHistory, setChatHistory] = useState([{ role: 'model', text: 'Olá! Sou o UniHelp. Posso tirar dúvidas usando as avaliações reais dos alunos.', feedback: null }]);
+  const [chatHistory, setChatHistory] = useState([
+    { role: 'model', text: 'Olá! Sou o UniHelp. Posso tirar dúvidas usando as avaliações reais dos alunos.', feedback: null }
+  ]);
   const [isLoading, setIsLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentChatId, setCurrentChatId] = useState(null);
-  const [filters, setFilters] = useState({ disciplina: '', professor: '', periodo: '' }); // Estado de Filtros
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
     if (auth) {
       const unsub = onAuthStateChanged(auth, (u) => {
-        if (u) { setUser(u); setCurrentScreen('home'); } else { setUser(null); setCurrentScreen('login'); }
+        if (u) { setUser(u); setCurrentScreen('home'); }
+        else { setUser(null); setCurrentScreen('login'); }
       });
       return () => unsub();
-    } else { setCurrentScreen('login'); }
+    } else {
+      // Se não tiver Firebase, fica no login
+      setCurrentScreen('login');
+    }
   }, []);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory.length, currentScreen]);
 
-  // Função SMART SEARCH: Busca conhecimento filtrado no Firebase
-  const fetchKnowledge = async (activeFilters) => {
+  // Função para buscar conhecimento no Firebase
+  const fetchKnowledge = async () => {
     if (!db) return "";
     try {
-      let q = collection(db, "avaliacoes");
-      
-      // Aplicar filtros simples (Nota: Filtros compostos podem exigir índices no Firebase)
-      // Para simplificar e evitar erros de índice agora, vamos filtrar no cliente se tiver poucos dados,
-      // ou usar um filtro principal. Aqui vamos tentar filtrar pela disciplina se selecionada.
-      if (activeFilters.disciplina) {
-        q = query(q, where("disciplina", "==", activeFilters.disciplina));
-      }
-      
-      // Pegamos os documentos (limitado a 20 para não estourar tokens)
-      const querySnapshot = await getDocs(query(q, limit(20)));
-      
+      const q = query(collection(db, "avaliacoes"), orderBy("data", "desc"), limit(10));
+      const querySnapshot = await getDocs(q);
       if (querySnapshot.empty) return "";
-
-      let knowledgeBase = `Aqui estão as avaliações encontradas${activeFilters.disciplina ? ` para ${activeFilters.disciplina}` : ''}:\n`;
-      
+      let knowledgeBase = "Aqui estão as avaliações recentes dos alunos:\n";
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        // Filtragem extra no cliente para Professor/Período (evita criar índices complexos agora)
-        if (activeFilters.professor && data.professor !== activeFilters.professor) return;
-        if (activeFilters.periodo && data.periodo !== activeFilters.periodo) return;
-
-        knowledgeBase += `- [${data.periodo}] Sobre ${data.disciplina} com ${data.professor}: "${data.opiniaoGeral}". (Explicação clara? ${data.explicacaoClara}, Prova justa? ${data.avaliacoesAlinhadas})\n`;
+        knowledgeBase += `- Sobre ${data.disciplina} com ${data.professor}: "${data.opiniaoGeral}". (Explicação clara? ${data.explicacaoClara}, Prova justa? ${data.avaliacoesAlinhadas})\n`;
       });
       return knowledgeBase;
-    } catch (error) {
-      console.error("Erro ao buscar conhecimento:", error);
-      return "";
-    }
+    } catch (error) { console.error("Erro conhecimento:", error); return ""; }
   };
 
   const saveChat = async (newMessages) => {
     if (!db || !user) return;
     const chatData = { userId: user.uid, messages: newMessages, lastMessageAt: new Date() };
     try {
-      if (currentChatId) await updateDoc(doc(db, "chats", currentChatId), { messages: newMessages, lastMessageAt: new Date() });
-      else { const docRef = await addDoc(collection(db, "chats"), chatData); setCurrentChatId(docRef.id); }
-    } catch (e) { console.error("Erro ao salvar chat", e); }
+      if (currentChatId) {
+        await updateDoc(doc(db, "chats", currentChatId), { messages: newMessages, lastMessageAt: new Date() });
+      } else {
+        const docRef = await addDoc(collection(db, "chats"), chatData);
+        setCurrentChatId(docRef.id);
+      }
+    } catch (error) { console.error("Erro salvar chat:", error); }
   };
 
   const handleSendMessage = async (text) => {
@@ -426,33 +432,24 @@ export default function App() {
     try {
       if (!GEMINI_API_KEY) throw new Error("API Key ausente");
 
-      // 1. Busca conhecimento com filtros
-      const knowledge = await fetchKnowledge(filters);
-
-      // 2. Monta o prompt
+      const knowledge = await fetchKnowledge();
       const systemInstruction = `
         Você é o UniHelp, um assistente acadêmico.
-        CONTEXTO DE DADOS REAIS DO BANCO DE DADOS:
-        ${knowledge ? knowledge : "Não foram encontradas avaliações específicas com esses filtros no banco de dados. Responda com base no seu conhecimento geral, mas avise que não há dados locais."}
+        ${knowledge ? "Use as seguintes opiniões reais de alunos para embasar sua resposta, mas mantenha a privacidade deles:\n" + knowledge : "Ainda não há avaliações suficientes no banco de dados."}
         
-        INSTRUÇÕES:
-        - Responda de forma direta e resumida (máximo 3 parágrafos).
-        - Use Markdown (negrito, listas).
-        - Se houver dados acima, CITE-OS explicitamente (ex: "Alunos relataram que...").
-        ${filters.disciplina ? `- O aluno está perguntando especificamente sobre o contexto de: ${filters.disciplina}` : ''}
+        Instruções de formatação:
+        - Seja direto e conciso (máximo 3 parágrafos curtos).
+        - Use formatação Markdown (negrito, listas) para facilitar a leitura.
+        - Se a pergunta for sobre algo que está nas avaliações, cite "Alguns alunos mencionaram que...".
       `;
       
-      const finalPrompt = `${systemInstruction}\n\nPergunta do usuário: ${text}`;
-
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: finalPrompt }] }] })
+        body: JSON.stringify({ contents: [{ parts: [{ text: `${systemInstruction}\n\nPergunta: ${text}` }] }] })
       });
 
       const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-
       const botResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "Erro ao gerar resposta.";
       const newBotMessage = { role: 'model', text: botResponse, feedback: null };
       setChatHistory(prev => { const updated = [...prev, newBotMessage]; saveChat(updated); return updated; });
@@ -468,7 +465,10 @@ export default function App() {
 
   const triggerValidation = () => {
     const validation = MOCK_VALIDATIONS[Math.floor(Math.random() * MOCK_VALIDATIONS.length)];
-    setChatHistory(prev => [...prev, { role: 'model', text: `🤔 **Ajude a comunidade:**\n\n"${validation.text}"\n\nIsso procede?`, type: 'validation', validationId: validation.id }]);
+    setChatHistory(prev => [
+      ...prev,
+      { role: 'model', text: `🤔 **Ajude a comunidade:**\n\n"${validation.text}"\n\nIsso procede?`, type: 'validation', validationId: validation.id }
+    ]);
   };
 
   const handleValidationResponse = async (id, response) => {
@@ -476,9 +476,13 @@ export default function App() {
     setChatHistory(prev => [...prev, { role: 'model', text: `✅ Obrigado! Sua resposta ajuda a manter o UniHelp atualizado.`, type: 'text' }]);
   };
 
+  const handleFeedback = (index, type) => {
+    setChatHistory(prev => prev.map((msg, i) => i === index ? { ...msg, feedback: type } : msg));
+  };
+
   const handleLogout = () => { if(auth) signOut(auth); setUser(null); setCurrentScreen('login'); setMobileMenuOpen(false); setCurrentChatId(null); setChatHistory([{ role: 'model', text: 'Olá! Sou o UniHelp.', feedback: null }]); }
   const handleLoadChat = (messages) => { setChatHistory(messages); setCurrentScreen('chat'); setMobileMenuOpen(false); };
-  const startNewChat = () => { setCurrentChatId(null); setChatHistory([{ role: 'model', text: 'Olá! Sou o UniHelp. Como posso ajudar com base nas avaliações?', feedback: null }]); setCurrentScreen('chat'); };
+  const startNewChat = () => { setCurrentChatId(null); setChatHistory([{ role: 'model', text: 'Olá! Sou o UniHelp. Como posso ajudar?', feedback: null }]); setCurrentScreen('chat'); };
 
   if (!user && currentScreen === 'login') return <LoginScreen onNavigate={setCurrentScreen} onLoginSuccess={(u) => { setUser(u); setCurrentScreen('home'); }} />;
   if (!user && currentScreen === 'register') return <RegisterScreen onNavigate={setCurrentScreen} onLoginSuccess={(u) => { setUser(u); setCurrentScreen('home'); }} />;
@@ -487,11 +491,13 @@ export default function App() {
 
   return (
     <div className="w-full h-[100dvh] bg-uni-bg flex flex-col font-sans text-uni-text overflow-hidden relative">
+      
+      {/* Sidebar Mobile */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)}></div>
           <div className="relative w-64 bg-uni-card h-full p-6 flex flex-col border-r border-uni-border shadow-2xl animate-fade-in">
-            <div className="mb-8"><LogoUniHelp className="h-10"/></div>
+            <div className="mb-8"><LogoUniHelp /></div>
             <div className="flex-1 space-y-2">
               <button onClick={() => { setCurrentScreen('home'); setMobileMenuOpen(false); }} className="w-full text-left p-3 rounded-xl hover:bg-uni-border text-white flex items-center gap-3"><Bot size={20}/> Início</button>
               <button onClick={() => { setCurrentScreen('chats'); setMobileMenuOpen(false); }} className="w-full text-left p-3 rounded-xl hover:bg-uni-border text-white flex items-center gap-3"><MessageSquare size={20}/> Meus Chats</button>
@@ -502,6 +508,7 @@ export default function App() {
         </div>
       )}
 
+      {/* Header */}
       <div className="h-16 md:h-20 min-h-[4rem] flex items-center px-4 md:px-6 justify-between bg-uni-bg/90 backdrop-blur-md z-30 border-b border-uni-border/30 shrink-0">
           <div className="w-10 flex justify-start">
             {currentScreen === 'chat' ? (
@@ -510,35 +517,52 @@ export default function App() {
               <button onClick={() => setMobileMenuOpen(true)} className="p-2 -ml-2 hover:bg-uni-card rounded-full transition"><Menu className="text-white" /></button>
             )}
           </div>
-          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2"><LogoUniHelp className="h-8" /></div>
+          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+            <LogoUniHelp />
+          </div>
           <div className="w-10 flex justify-end">
-            <div className="w-9 h-9 rounded-full bg-uni-card border border-uni-border flex items-center justify-center hover:border-uni-primary transition cursor-pointer" onClick={handleLogout}><User size={18} className="text-uni-muted"/></div>
+            <div className="w-9 h-9 rounded-full bg-uni-card border border-uni-border flex items-center justify-center hover:border-uni-primary transition cursor-pointer" onClick={handleLogout}>
+              <User size={18} className="text-uni-muted"/>
+            </div>
           </div>
       </div>
 
+      {/* Main Container */}
       <div className="flex-1 w-full h-full relative overflow-y-auto custom-scrollbar scroll-smooth">
+        
+        {/* Home */}
         {currentScreen === 'home' && (
           <div className="p-6 pb-24 max-w-3xl mx-auto w-full">
             <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[2rem] p-8 mb-8 text-white relative overflow-hidden shadow-2xl group cursor-pointer transition-transform hover:scale-[1.01]" onClick={startNewChat}>
               <div className="relative z-10">
                 <h2 className="text-2xl font-bold mb-6 leading-tight max-w-[70%]">Tire dúvidas sobre <br/> suas disciplinas</h2>
-                <button className="bg-white text-blue-700 px-6 py-2.5 rounded-full font-bold text-sm hover:bg-gray-100 transition shadow-md flex items-center gap-2"><Sparkles size={16} /> Iniciar chat</button>
+                <button className="bg-white text-blue-700 px-6 py-2.5 rounded-full font-bold text-sm hover:bg-gray-100 transition shadow-md flex items-center gap-2">
+                  <Sparkles size={16} /> Iniciar chat
+                </button>
               </div>
               <img src="https://cdn-icons-png.flaticon.com/512/4712/4712035.png" className="absolute right-[-20px] bottom-[-30px] w-48 opacity-90 transition-transform group-hover:scale-110 group-hover:rotate-6" alt="Bot" />
             </div>
+
             <div className="mb-6">
               <h3 className="text-sm font-bold text-uni-muted mb-4 flex items-center gap-2 uppercase tracking-wider"><ShieldCheck size={14}/> Valide informações</h3>
               <div className="p-4 bg-uni-card border border-uni-border rounded-2xl flex items-center justify-between group cursor-pointer hover:border-uni-primary/50 transition" onClick={startNewChat}>
-                 <div><p className="text-white font-medium">Ajude outros alunos</p><p className="text-xs text-uni-muted">Responda perguntas rápidas sobre professores</p></div>
+                 <div>
+                   <p className="text-white font-medium">Ajude outros alunos</p>
+                   <p className="text-xs text-uni-muted">Responda perguntas rápidas sobre professores</p>
+                 </div>
                  <ChevronDown className="-rotate-90 text-uni-muted" size={20}/>
               </div>
             </div>
-            <button onClick={() => setCurrentScreen('evaluation')} className="w-full py-4 bg-uni-card border border-uni-border rounded-2xl text-center text-white font-medium hover:bg-uni-border transition shadow-sm">Avaliar uma Disciplina</button>
+
+            <button onClick={() => setCurrentScreen('evaluation')} className="w-full py-4 bg-uni-card border border-uni-border rounded-2xl text-center text-white font-medium hover:bg-uni-border transition shadow-sm">
+              Avaliar uma Disciplina
+            </button>
           </div>
         )}
 
+        {/* Chat */}
         {currentScreen === 'chat' && (
-          <div className="w-full max-w-4xl mx-auto min-h-full flex flex-col pb-40">
+          <div className="w-full max-w-4xl mx-auto min-h-full flex flex-col pb-32">
             <div className="flex-1 p-4 space-y-6">
               {chatHistory.map((msg, idx) => (
                 <div key={idx} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
@@ -546,9 +570,24 @@ export default function App() {
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border shadow-sm ${msg.role === 'user' ? 'border-transparent bg-uni-primary text-white' : 'border-uni-border bg-uni-card text-uni-text'}`}>
                       {msg.role === 'user' ? <User size={16} /> : <Bot size={18} />}
                     </div>
+                    
                     <div className="flex flex-col gap-2 w-full min-w-0">
-                      <div className={`p-4 text-sm md:text-base leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-uni-primary text-white rounded-2xl rounded-tr-sm shadow-blue-900/20' : msg.type === 'validation' ? 'bg-uni-card border border-uni-primary/30 rounded-2xl' : 'bg-uni-card text-uni-text border border-uni-border rounded-2xl rounded-tl-sm'}`}>
-                        <ReactMarkdown className="prose prose-invert prose-sm max-w-none components={{ strong: ({node, ...props}) => <span className='font-bold text-blue-300' {...props} /> }}">{msg.text}</ReactMarkdown>
+                      <div className={`p-4 text-sm md:text-base leading-relaxed shadow-sm ${
+                        msg.role === 'user' ? 'bg-uni-primary text-white rounded-2xl rounded-tr-sm shadow-blue-900/20' : 
+                        msg.type === 'validation' ? 'bg-uni-card border border-uni-primary/30 rounded-2xl' :
+                        'bg-uni-card text-uni-text border border-uni-border rounded-2xl rounded-tl-sm'
+                      }`}>
+                        
+                        <ReactMarkdown 
+                          className="prose prose-invert prose-sm max-w-none"
+                          components={{
+                            strong: ({node, ...props}) => <span className="font-bold text-blue-300" {...props} />
+                          }}
+                        >
+                          {msg.text}
+                        </ReactMarkdown>
+
+                        {/* UI de Validação Especial */}
                         {msg.type === 'validation' && (
                           <div className="mt-4 pt-4 border-t border-uni-border flex gap-3 justify-center">
                              <button onClick={() => handleValidationResponse(msg.validationId, 'verdade')} className="flex-1 bg-green-500/10 text-green-400 border border-green-500/30 py-2 rounded-lg text-xs font-bold hover:bg-green-500/20 transition">É VERDADE</button>
@@ -557,6 +596,34 @@ export default function App() {
                           </div>
                         )}
                       </div>
+                      
+                      {/* Botões de Feedback (LIKE/DISLIKE) */}
+                      {msg.role === 'model' && msg.type !== 'validation' && !msg.isError && idx > 0 && (
+                        <div className="flex gap-2">
+                          {msg.feedback === 'yes' ? (
+                             <div className="text-xs text-uni-primary flex items-center gap-1 font-bold animate-fade-in"><Check size={14} /> Obrigado!</div>
+                          ) : msg.feedback === 'no' ? (
+                             <div className="text-xs text-uni-muted flex items-center gap-1 animate-fade-in">Anotado.</div>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => handleFeedback(idx, 'yes')} 
+                                className="p-1.5 rounded-full hover:bg-uni-border text-uni-muted hover:text-green-400 transition"
+                                title="Gostei"
+                              >
+                                <ThumbsUp size={16} />
+                              </button>
+                              <button 
+                                onClick={() => handleFeedback(idx, 'no')} 
+                                className="p-1.5 rounded-full hover:bg-uni-border text-uni-muted hover:text-red-400 transition"
+                                title="Não gostei"
+                              >
+                                <ThumbsDown size={16} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -567,7 +634,8 @@ export default function App() {
           </div>
         )}
       </div>
-      {currentScreen === 'chat' && <ChatInput onSend={handleSendMessage} isLoading={isLoading} filters={filters} setFilters={setFilters} />}
+
+      {currentScreen === 'chat' && <ChatInput onSend={handleSendMessage} isLoading={isLoading} />}
     </div>
   );
 }
