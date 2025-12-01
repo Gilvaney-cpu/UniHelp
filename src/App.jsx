@@ -5,8 +5,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, collection, addDoc, getDocs, query, where } from "firebase/firestore";
 
-// --- CONFIGURAÇÃO DO FIREBASE (PRODUÇÃO) ---
-// Este código busca as chaves automaticamente do seu arquivo .env
+// --- CONFIGURAÇÃO DO FIREBASE ---
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -16,19 +15,16 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-// Inicializa Firebase de forma segura
+// Inicializa Firebase
 let auth, db;
 try {
-  // Verifica se a chave existe antes de tentar inicializar
   if (firebaseConfig.apiKey) {
     const app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
-  } else {
-    console.warn("Chaves do Firebase não encontradas no .env");
   }
 } catch (e) { 
-  console.error("Erro ao inicializar Firebase:", e); 
+  console.error("Erro ao inicializar Firebase", e); 
 }
 
 // --- CONFIGURAÇÃO DA API GEMINI ---
@@ -48,12 +44,22 @@ const MOCK_VALIDATIONS = [
 
 // --- COMPONENTES ---
 
-const LogoUniHelp = () => (
-  <div className="flex items-center gap-2 mb-8 animate-fade-in">
-    <div className="bg-uni-primary/20 p-3 rounded-2xl shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-       <Bot size={40} className="text-uni-primary" />
+// Logo atualizada para usar a imagem (Salve como 'logo.png' na pasta public)
+const LogoUniHelp = ({ className = "h-8" }) => (
+  <div className="flex items-center gap-2 animate-fade-in">
+    {/* Tenta carregar a imagem, se falhar mostra o ícone antigo como fallback */}
+    <img 
+      src="/logo.png" 
+      alt="UniHelp" 
+      className={`object-contain ${className}`}
+      onError={(e) => {
+        e.target.style.display = 'none';
+        e.target.nextSibling.style.display = 'flex';
+      }}
+    />
+    <div className="hidden items-center gap-2 text-white font-bold text-xl">
+       <Bot className="text-uni-primary" /> UniHelp
     </div>
-    <span className="text-3xl font-bold text-white tracking-wide">UniHelp</span>
   </div>
 );
 
@@ -97,8 +103,7 @@ const LoginScreen = ({ onNavigate, onLoginSuccess }) => {
       if (auth) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        // Fallback apenas se o Firebase falhar
-        alert("Firebase não conectado. Verifique o console.");
+        alert("Erro: Firebase não inicializado corretamente.");
         setLoading(false);
       }
     } catch (err) { 
@@ -110,14 +115,14 @@ const LoginScreen = ({ onNavigate, onLoginSuccess }) => {
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-uni-bg overflow-y-auto custom-scrollbar p-8">
       <div className="w-full max-w-md flex flex-col items-center">
-        <LogoUniHelp />
+        <div className="mb-8 scale-150"><LogoUniHelp /></div>
         <div className="w-full space-y-4">
           <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary" />
           <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-uni-card border border-uni-border rounded-xl p-4 text-white outline-none focus:border-uni-primary" />
           <button onClick={handleLogin} disabled={loading} className="w-full py-4 bg-uni-primary rounded-xl text-white font-bold shadow-lg mt-4 flex justify-center">
             {loading ? <Loader2 className="animate-spin" /> : "Entrar"}
           </button>
-          <button onClick={() => onNavigate('register')} className="text-uni-muted text-sm hover:text-white transition">Criar conta</button>
+          <button onClick={() => onNavigate('register')} className="text-uni-muted text-sm hover:text-white transition w-full text-center">Criar conta</button>
         </div>
       </div>
     </div>
@@ -134,7 +139,6 @@ const RegisterScreen = ({ onNavigate, onLoginSuccess }) => {
     if (auth) {
       try { 
         await createUserWithEmailAndPassword(auth, email, password); 
-        // O onAuthStateChanged no App cuidará do redirecionamento
       } catch(e) {
         alert("Erro ao cadastrar: " + e.message);
         setLoading(false);
@@ -153,7 +157,7 @@ const RegisterScreen = ({ onNavigate, onLoginSuccess }) => {
           <button onClick={handleRegister} disabled={loading} className="w-full py-4 bg-uni-primary rounded-xl text-white font-bold shadow-lg mt-4 flex justify-center">
              {loading ? <Loader2 className="animate-spin" /> : "Cadastrar"}
           </button>
-          <button onClick={() => onNavigate('login')} className="w-full text-uni-muted text-sm hover:text-white transition">Voltar para Login</button>
+          <button onClick={() => onNavigate('login')} className="w-full text-uni-muted text-sm hover:text-white transition text-center">Voltar para Login</button>
         </div>
       </div>
     </div>
@@ -165,7 +169,7 @@ const EvaluationScreen = ({ onNavigate }) => {
     disciplina: '',
     professor: '',
     periodo: '',
-    explicacaoClara: null, // null, 'sim', 'nao'
+    explicacaoClara: null,
     avaliacoesAlinhadas: null,
     opiniaoGeral: ''
   });
@@ -183,7 +187,7 @@ const EvaluationScreen = ({ onNavigate }) => {
         });
       } catch (e) { 
         console.error("Erro ao salvar:", e);
-        alert("Erro ao salvar a avaliação. Verifique sua conexão.");
+        alert("Erro ao salvar a avaliação.");
         return;
       }
     }
@@ -293,6 +297,7 @@ export default function App() {
     { role: 'model', text: 'Olá, sou o UniHelp! Como posso te ajudar hoje?', feedback: null }
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // Novo estado para o menu
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -303,25 +308,17 @@ export default function App() {
       });
       return () => unsub();
     } else {
-      // Se não tiver Firebase, fica no login
       setCurrentScreen('login');
     }
   }, []);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory.length, currentScreen]);
 
-  // Função para Injetar uma Validação no Chat
   const triggerValidation = () => {
     const validation = MOCK_VALIDATIONS[Math.floor(Math.random() * MOCK_VALIDATIONS.length)];
-    
     setChatHistory(prev => [
       ...prev,
-      { 
-        role: 'model', 
-        text: `🤔 **Ajude a comunidade:**\n\n"${validation.text}"\n\nEssa informação procede?`, 
-        type: 'validation',
-        validationId: validation.id
-      }
+      { role: 'model', text: `🤔 **Ajude a comunidade:**\n\n"${validation.text}"\n\nEssa informação procede?`, type: 'validation', validationId: validation.id }
     ]);
   };
 
@@ -332,7 +329,6 @@ export default function App() {
     try {
       if (!GEMINI_API_KEY) throw new Error("API Key ausente");
 
-      // INSTRUÇÃO DE SISTEMA OCULTA PARA RESPOSTAS CURTAS
       const systemInstruction = "(Responda de forma direta, resumida e didática, com no máximo 3 parágrafos curtos. Use bullet points se precisar listar algo.)";
       const finalPrompt = `${text} ${systemInstruction}`;
 
@@ -348,13 +344,12 @@ export default function App() {
       const botResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "Erro ao gerar resposta.";
       setChatHistory(prev => [...prev, { role: 'model', text: botResponse, feedback: null }]);
       
-      // Chance de disparar validação após resposta
       if (Math.random() > 0.7) {
         setTimeout(triggerValidation, 1500);
       }
 
     } catch (error) {
-      setChatHistory(prev => [...prev, { role: 'model', text: 'Erro de conexão.', isError: true }]);
+      setChatHistory(prev => [...prev, { role: 'model', text: 'Erro de conexão. Verifique o .env', isError: true }]);
     } finally {
       setIsLoading(false);
     }
@@ -365,14 +360,19 @@ export default function App() {
   };
 
   const handleValidationResponse = (id, response) => {
-    console.log(`Validação ${id}: ${response}`);
     setChatHistory(prev => [
       ...prev,
       { role: 'model', text: `✅ Obrigado! Sua resposta ajuda a manter o UniHelp atualizado.`, type: 'text' }
     ]);
   };
 
-  // Renderização Condicional
+  const handleLogout = () => {
+    if(auth) signOut(auth);
+    setUser(null);
+    setCurrentScreen('login');
+    setMobileMenuOpen(false);
+  }
+
   if (!user && currentScreen === 'login') return <LoginScreen onNavigate={setCurrentScreen} onLoginSuccess={(u) => { setUser(u); setCurrentScreen('home'); }} />;
   if (!user && currentScreen === 'register') return <RegisterScreen onNavigate={setCurrentScreen} onLoginSuccess={(u) => { setUser(u); setCurrentScreen('home'); }} />;
   if (currentScreen === 'evaluation') return <EvaluationScreen onNavigate={setCurrentScreen} />;
@@ -380,27 +380,42 @@ export default function App() {
   return (
     <div className="w-full h-[100dvh] bg-uni-bg flex flex-col font-sans text-uni-text overflow-hidden relative">
       
+      {/* Sidebar Mobile (Menu Overlay) */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)}></div>
+          <div className="relative w-64 bg-uni-card h-full p-6 flex flex-col border-r border-uni-border shadow-2xl animate-fade-in">
+            <div className="mb-8"><LogoUniHelp /></div>
+            <div className="flex-1 space-y-2">
+              <button onClick={() => { setCurrentScreen('home'); setMobileMenuOpen(false); }} className="w-full text-left p-3 rounded-xl hover:bg-uni-border text-white flex items-center gap-3"><Bot size={20}/> Início</button>
+              <button onClick={() => { setCurrentScreen('evaluation'); setMobileMenuOpen(false); }} className="w-full text-left p-3 rounded-xl hover:bg-uni-border text-white flex items-center gap-3"><Star size={20}/> Avaliar</button>
+            </div>
+            <button onClick={handleLogout} className="w-full text-left p-3 rounded-xl hover:bg-red-500/20 text-red-400 flex items-center gap-3 mt-auto"><LogOut size={20}/> Sair</button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="h-16 md:h-20 min-h-[4rem] flex items-center px-4 md:px-6 justify-between bg-uni-bg/90 backdrop-blur-md z-30 border-b border-uni-border/30 shrink-0">
           <div className="w-10 flex justify-start">
             {currentScreen === 'chat' ? (
               <button onClick={() => setCurrentScreen('home')} className="p-2 -ml-2 hover:bg-uni-card rounded-full transition"><ArrowLeft className="text-white" /></button>
             ) : (
-              <button className="p-2 -ml-2 hover:bg-uni-card rounded-full transition"><Menu className="text-white" /></button>
+              // Botão de Menu agora funciona!
+              <button onClick={() => setMobileMenuOpen(true)} className="p-2 -ml-2 hover:bg-uni-card rounded-full transition"><Menu className="text-white" /></button>
             )}
           </div>
-          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center gap-2">
-            <Bot className="text-uni-primary" size={24} />
-            <span className="font-bold text-lg tracking-wide">UniHelp</span>
+          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+            <LogoUniHelp className="h-8" />
           </div>
           <div className="w-10 flex justify-end">
-            <div className="w-9 h-9 rounded-full bg-uni-card border border-uni-border flex items-center justify-center hover:border-uni-primary transition cursor-pointer" onClick={() => { if(auth) signOut(auth); setUser(null); setCurrentScreen('login'); }}>
-              <LogOut size={18} className="text-uni-muted hover:text-red-400"/>
+            <div className="w-9 h-9 rounded-full bg-uni-card border border-uni-border flex items-center justify-center hover:border-uni-primary transition cursor-pointer" onClick={handleLogout}>
+              <User size={18} className="text-uni-muted"/>
             </div>
           </div>
       </div>
 
-      {/* Main Container */}
+      {/* Container Principal */}
       <div className="flex-1 w-full h-full relative overflow-y-auto custom-scrollbar scroll-smooth">
         
         {/* Home */}
@@ -443,24 +458,14 @@ export default function App() {
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border shadow-sm ${msg.role === 'user' ? 'border-transparent bg-uni-primary text-white' : 'border-uni-border bg-uni-card text-uni-text'}`}>
                       {msg.role === 'user' ? <User size={16} /> : <Bot size={18} />}
                     </div>
-                    
                     <div className="flex flex-col gap-2 w-full min-w-0">
                       <div className={`p-4 text-sm md:text-base leading-relaxed shadow-sm ${
                         msg.role === 'user' ? 'bg-uni-primary text-white rounded-2xl rounded-tr-sm shadow-blue-900/20' : 
                         msg.type === 'validation' ? 'bg-uni-card border border-uni-primary/30 rounded-2xl' :
                         'bg-uni-card text-uni-text border border-uni-border rounded-2xl rounded-tl-sm'
                       }`}>
-                        
-                        <ReactMarkdown 
-                          className="prose prose-invert prose-sm max-w-none"
-                          components={{
-                            strong: ({node, ...props}) => <span className="font-bold text-blue-300" {...props} />
-                          }}
-                        >
-                          {msg.text}
-                        </ReactMarkdown>
+                        <ReactMarkdown className="prose prose-invert prose-sm max-w-none components={{ strong: ({node, ...props}) => <span className='font-bold text-blue-300' {...props} /> }}">{msg.text}</ReactMarkdown>
 
-                        {/* UI de Validação Especial */}
                         {msg.type === 'validation' && (
                           <div className="mt-4 pt-4 border-t border-uni-border flex gap-3 justify-center">
                              <button onClick={() => handleValidationResponse(msg.validationId, 'verdade')} className="flex-1 bg-green-500/10 text-green-400 border border-green-500/30 py-2 rounded-lg text-xs font-bold hover:bg-green-500/20 transition">É VERDADE</button>
@@ -470,7 +475,6 @@ export default function App() {
                         )}
                       </div>
                       
-                      {/* Botões de Feedback (Like/Dislike) */}
                       {msg.role === 'model' && msg.type !== 'validation' && !msg.isError && idx > 0 && (
                         <div className="flex gap-2">
                           {msg.feedback === 'yes' ? (
