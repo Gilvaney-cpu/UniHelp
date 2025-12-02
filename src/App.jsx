@@ -322,9 +322,11 @@ export default function App() {
     } catch (e) { console.error(e); }
   };
 
-  const handleSendMessage = async (text) => {
+const handleSendMessage = async (text) => {
+    // 1. STATE UPLIFTING: Salva mensagem do usuário
     const newUserMessage = { role: 'user', text, feedback: null };
     const historyWithUser = [...chatHistory, newUserMessage];
+    
     setChatHistory(historyWithUser);
     saveChat(historyWithUser);
     setIsLoading(true);
@@ -332,47 +334,63 @@ export default function App() {
     try {
       if (!GEMINI_API_KEY) throw new Error("API Key ausente");
 
+      // 2. Busca dados específicos no banco (RAG)
       const knowledge = await fetchKnowledge();
       const today = new Date().toLocaleDateString('pt-BR');
+      
+      // Cria texto dos filtros para a IA entender o contexto
       const activeFiltersText = Object.values(searchFilters).filter(Boolean).join(', ');
 
-      // --- PROMPT COM INSTRUÇÃO DE CITAÇÃO ---
+      // --- A MÁGICA DO RAG HÍBRIDO ESTÁ AQUI ---
       const systemInstruction = `
-        Você é o UniHelp. Hoje é ${today}.
-        ${activeFiltersText ? `FILTROS ATIVOS: ${activeFiltersText}.` : ''}
+        Você é o UniHelp, um assistente acadêmico universitário experiente.
+        Hoje é ${today}.
+        ${activeFiltersText ? `O aluno está filtrando por: ${activeFiltersText}.` : ''}
 
-        BASE DE CONHECIMENTO (Use isso para responder):
-        ${knowledge ? knowledge : "Sem dados para esse filtro."}
+        === DADOS DO BANCO DA UNIVERSIDADE (Prioridade Máxima) ===
+        ${knowledge ? knowledge : "Não há dados específicos sobre isso no banco de avaliações agora."}
         
-        INSTRUÇÕES OBRIGATÓRIAS:
-        1. Responda à pergunta do aluno baseando-se ESTRITAMENTE na base acima.
-        2. **REGRA DE OURO:** Ao final de cada afirmação que você fizer baseada em uma avaliação, você DEVE citar a fonte no formato exato: [ID:código_do_id].
-        
-        Exemplo de resposta correta:
-        "O professor explica bem [ID:abc1234], mas cobra muita presença [ID:xyz987]."
+        === SUAS INSTRUÇÕES DE COMPORTAMENTO ===
+        1. **Analise a pergunta:**
+           - Se for sobre algo específico da faculdade (ex: "Como é o Prof. Robson?", "Cai prova na matéria tal?"), use **EXCLUSIVAMENTE** os "DADOS DO BANCO" acima. Se não tiver a info, diga que não sabe.
+           - Se for uma dúvida conceitual ou geral (ex: "O que se estuda em Engenharia de Software?", "Dicas de estudo", "Explique Scrum"), use seu **próprio conhecimento** de IA para ajudar o aluno, mesmo que não esteja no banco.
+
+        2. **Estilo de Resposta:**
+           - Seja didático, jovem e universitário.
+           - Use Emojis 🎓🚀.
+           - Se usar uma informação que veio do banco de dados, você **DEVE** citar a fonte no final da frase usando [ID:codigo]. Se for conhecimento geral seu, não precisa citar ID.
       `;
       
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: `${systemInstruction}\n\nHistórico:\n${historyWithUser.map(m => `${m.role}: ${m.text}`).join('\n')}\n\nPergunta: ${text}` }] }] })
+        body: JSON.stringify({ contents: [{ parts: [{ text: `${systemInstruction}\n\nHistórico da conversa:\n${historyWithUser.map(m => `${m.role}: ${m.text}`).join('\n')}\n\nAluno pergunta: ${text}` }] }] })
       });
 
       const data = await response.json();
-      if(data.error) throw new Error(data.error.message);
-      const botResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "Erro.";
       
+      if(data.error) throw new Error(data.error.message);
+
+      const botResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "Erro ao processar resposta.";
+      
+      // 3. Salva resposta da IA
       const finalHistory = [...historyWithUser, { role: 'model', text: botResponse, feedback: null }];
+      
       setChatHistory(finalHistory);
       saveChat(finalHistory);
+      
+      // Validação aleatória (mantida)
       if (Math.random() > 0.7) setTimeout(() => {
          const v = MOCK_VALIDATIONS[Math.floor(Math.random() * MOCK_VALIDATIONS.length)];
          setChatHistory(prev => [...prev, { role: 'model', text: `🤔 **Ajude a comunidade:**\n\n"${v.text}"`, type: 'validation', validationId: v.id }]);
       }, 1500);
 
     } catch (error) {
-      setChatHistory(prev => [...prev, { role: 'model', text: '⚠️ Erro de conexão.', isError: true }]);
-    } finally { setIsLoading(false); }
+      console.error(error);
+      setChatHistory(prev => [...prev, { role: 'model', text: '⚠️ Tive um problema de conexão. Tente novamente.', isError: true }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleValidationResponse = async (id, r) => { if(db) try{ await addDoc(collection(db, "validacoes"), { id, r, date: new Date() }); }catch(e){} setChatHistory(prev=>[...prev,{role:'model',text:'✅ Obrigado!',type:'text'}]); };
