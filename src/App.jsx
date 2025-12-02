@@ -109,31 +109,60 @@ const ChatInput = ({ onSend, isLoading }) => {
   );
 };
 
-// --- FUNÇÃO AUXILIAR PARA RENDERIZAR CITAÇÕES ---
-// Transforma [ID:123] em um botão visual
+// --- FUNÇÃO DE RENDERIZAÇÃO PREMIUM (Estilo Perplexity/Gemini) ---
 const renderContentWithSources = (text) => {
-  // Regex para capturar [ID:...]
-  const parts = text.split(/(\[ID:[a-zA-Z0-9]+\])/g);
+  // 1. Extrai todas as fontes usando Regex
+  const sourceMatches = text.match(/\[ID:[a-zA-Z0-9]+\]/g) || [];
   
+  // 2. Remove as tags do texto principal para a leitura ficar limpa e fluida
+  const cleanText = text.replace(/\[ID:[a-zA-Z0-9]+\]/g, ''); 
+
+  // 3. Remove duplicatas (caso a IA cite a mesma fonte 2x)
+  const uniqueSources = [...new Set(sourceMatches.map(s => s.replace('[ID:', '').replace(']', '')))];
+
   return (
-    <div className="prose prose-invert prose-sm max-w-none break-words">
-      {parts.map((part, index) => {
-        if (part.match(/\[ID:[a-zA-Z0-9]+\]/)) {
-          const id = part.replace('[ID:', '').replace(']', '');
-          return (
-            <button 
-              key={index} 
-              onClick={() => alert(`Fonte Original (ID Firestore): ${id}\n\nEm um app real, isso abriria o modal com a avaliação completa.`)}
-              className="inline-flex items-center gap-1 mx-1 px-1.5 py-0.5 rounded bg-uni-primary/20 hover:bg-uni-primary/40 border border-uni-primary/30 text-[10px] font-bold text-blue-300 transition cursor-pointer translate-y-[-2px]"
-              title="Ver fonte original"
-            >
-              <FileText size={8} /> Fonte
-            </button>
-          );
-        }
-        // Renderiza Markdown normal para o resto do texto
-        return <ReactMarkdown key={index} components={{ p: ({node, ...props}) => <span {...props} /> }}>{part}</ReactMarkdown>;
-      })}
+    <div className="flex flex-col">
+      {/* Texto Principal (Limpo e Fluido) */}
+      <ReactMarkdown 
+        className="prose prose-invert prose-sm max-w-none break-words leading-relaxed text-gray-100"
+        components={{
+          p: ({node, ...props}) => <p className="mb-3 last:mb-0" {...props} />,
+          li: ({node, ...props}) => <li className="mb-1" {...props} />,
+          strong: ({node, ...props}) => <span className="font-bold text-blue-200" {...props} />
+        }}
+      >
+        {cleanText}
+      </ReactMarkdown>
+
+      {/* Rodapé de Fontes (Só aparece se houver citações) */}
+      {uniqueSources.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-white/10 animate-fade-in">
+          <p className="text-[10px] text-uni-muted font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
+            <ShieldCheck size={10} className="text-green-400" /> Fontes verificadas:
+          </p>
+          
+          <div className="flex flex-wrap gap-2">
+            {uniqueSources.map((id, idx) => (
+              <button 
+                key={idx}
+                onClick={() => alert(`🔍 Detalhes da Avaliação:\n\nID no Banco: ${id}\n\n(Aqui abriria o modal com o texto completo do aluno)`)}
+                className="
+                  group flex items-center gap-1.5 
+                  px-2.5 py-1.5 
+                  bg-uni-bg/40 border border-uni-border/50 hover:border-uni-primary/50 
+                  rounded-lg transition-all duration-200
+                  hover:bg-uni-primary/10 active:scale-95
+                "
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-uni-primary group-hover:bg-cyan-400 transition-colors"></div>
+                <span className="text-[11px] text-uni-muted group-hover:text-white font-medium">
+                  Avaliação #{idx + 1}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
