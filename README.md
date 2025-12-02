@@ -21,6 +21,8 @@
 
 ## 📱 Sobre
 
+https://github.com/user-attachments/assets/0a674bf0-a21e-4094-9517-07ac237b8374
+
 O **UniHelp** é uma plataforma acadêmica desenvolvida para modernizar a experiência universitária. Diferente de chatbots comuns, ele utiliza uma arquitetura de **RAG Híbrido (Retrieval-Augmented Generation)**.
 
 Isso significa que o UniHelp consulta uma base de dados real de avaliações de alunos (Firestore) para responder perguntas específicas sobre a faculdade (ex: "Como é o Prof. Robson?"), mas também utiliza o conhecimento geral do **Google Gemini** para tirar dúvidas conceituais (ex: "O que é Engenharia de Software?").
