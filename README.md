@@ -21,7 +21,7 @@
 
 ## 📱 Sobre
 
-https://github.com/user-attachments/assets/0a674bf0-a21e-4094-9517-07ac237b8374
+https://github.com/user-attachments/assets/b5638e0d-1acb-4079-9916-c9d3121e7861
 
 O **UniHelp** é uma plataforma acadêmica desenvolvida para modernizar a experiência universitária. Diferente de chatbots comuns, ele utiliza uma arquitetura de **RAG Híbrido (Retrieval-Augmented Generation)**.
 
