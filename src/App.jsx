@@ -109,20 +109,21 @@ const ChatInput = ({ onSend, isLoading }) => {
   );
 };
 
-// --- FUNÇÃO DE RENDERIZAÇÃO PREMIUM (Estilo Perplexity/Gemini) ---
+// // --- FUNÇÃO DE RENDERIZAÇÃO CORRIGIDA ---
 const renderContentWithSources = (text) => {
-  // 1. Extrai todas as fontes usando Regex
-  const sourceMatches = text.match(/\[ID:[a-zA-Z0-9]+\]/g) || [];
+  // ATENÇÃO: Mudamos a Regex para \[ID:[^\]]+\]
+  // Isso significa: "Pegue [ID: seguido de QUALQUER coisa até fechar o colchete ]"
+  const sourceMatches = text.match(/\[ID:[^\]]+\]/g) || [];
   
-  // 2. Remove as tags do texto principal para a leitura ficar limpa e fluida
-  const cleanText = text.replace(/\[ID:[a-zA-Z0-9]+\]/g, ''); 
+  // Remove as tags do texto principal
+  const cleanText = text.replace(/\[ID:[^\]]+\]/g, ''); 
 
-  // 3. Remove duplicatas (caso a IA cite a mesma fonte 2x)
-  const uniqueSources = [...new Set(sourceMatches.map(s => s.replace('[ID:', '').replace(']', '')))];
+  // Limpa os IDs para exibir nos botões (tira o '[ID:' e o ']')
+  const uniqueSources = [...new Set(sourceMatches.map(s => s.replace('[ID:', '').replace(']', '').trim()))];
 
   return (
     <div className="flex flex-col">
-      {/* Texto Principal (Limpo e Fluido) */}
+      {/* Texto Principal (Limpo) */}
       <ReactMarkdown 
         className="prose prose-invert prose-sm max-w-none break-words leading-relaxed text-gray-100"
         components={{
@@ -134,7 +135,7 @@ const renderContentWithSources = (text) => {
         {cleanText}
       </ReactMarkdown>
 
-      {/* Rodapé de Fontes (Só aparece se houver citações) */}
+      {/* Rodapé de Fontes */}
       {uniqueSources.length > 0 && (
         <div className="mt-4 pt-3 border-t border-white/10 animate-fade-in">
           <p className="text-[10px] text-uni-muted font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
@@ -145,7 +146,8 @@ const renderContentWithSources = (text) => {
             {uniqueSources.map((id, idx) => (
               <button 
                 key={idx}
-                onClick={() => alert(`🔍 Detalhes da Avaliação:\n\nID no Banco: ${id}\n\n(Aqui abriria o modal com o texto completo do aluno)`)}
+                // Mostra o ID real no alerta para prova de conceito
+                onClick={() => alert(`🔍 Fonte Original (Firestore ID):\n${id}`)}
                 className="
                   group flex items-center gap-1.5 
                   px-2.5 py-1.5 
